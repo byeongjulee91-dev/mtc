@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# App state
+*.log
+
+# OMC local orchestration state
+.omc/
