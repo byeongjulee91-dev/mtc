@@ -146,6 +146,17 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Full-text variant: wrap instead of truncating (used for todo queries). */
+.grow.wrap {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Keep checkbox/buttons pinned to the top when the text wraps to many lines. */
+.list-row.top {
+  align-items: flex-start;
+}
 
 input.field,
 textarea.field {
@@ -278,6 +289,27 @@ textarea.field {
 .pane-term .xterm {
   height: 100%;
   padding: 2px;
+}
+/* xterm renders its own scroll container (.xterm-viewport). The WebView's
+   default scrollbar is light grey and clashes with the black terminal, so we
+   theme it to blend in (Chromium/WebView2 supports ::-webkit-scrollbar). */
+.pane-term .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: #2a313d #000;
+}
+.pane-term .xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.pane-term .xterm-viewport::-webkit-scrollbar-track {
+  background: #000;
+}
+.pane-term .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #2a313d;
+  border: 2px solid #000;
+  border-radius: 6px;
+}
+.pane-term .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #3a4350;
 }
 .center-empty {
   position: absolute;
