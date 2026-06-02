@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(uv *)",
+      "Bash(docker *)",
+      "Bash(wait)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(npm *)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
