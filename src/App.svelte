@@ -46,8 +46,11 @@
   </div>
 
   {#if app.data.leftPanelCollapsed}
-    <!-- Reveal tab shown on the far left while the panel is hidden. -->
-    <button class="reveal-left" title="Show panel" onclick={() => app.toggleLeftPanel()}>›</button>
+    <!-- Hover zone at the far left: the reveal tab fades in only when the
+         pointer is near the edge, so it stays out of the way otherwise. -->
+    <div class="reveal-zone">
+      <button class="reveal-left" title="Show panel" onclick={() => app.toggleLeftPanel()}>›</button>
+    </div>
   {:else}
     <!-- Drag divider on the gap between the left panel and the center. -->
     <div

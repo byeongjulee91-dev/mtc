@@ -61,12 +61,23 @@ body,
   opacity: 0.5;
 }
 
-/* Reveal tab shown at the far left when the panel is collapsed. */
+/* Far-left hover zone shown while the panel is collapsed. This thin strip
+   catches the pointer near the edge and fades in the reveal tab; otherwise the
+   tab is invisible so it stays out of the way. */
+.reveal-zone {
+  position: absolute;
+  top: 0;
+  bottom: calc(var(--row-h) + 1px);
+  left: 0;
+  width: 14px;
+  z-index: 6;
+}
+
+/* Reveal tab — hidden until the pointer enters the zone (or it's focused). */
 .reveal-left {
   position: absolute;
   top: 8px;
   left: 0;
-  z-index: 6;
   width: 18px;
   height: 38px;
   padding: 0;
@@ -76,6 +87,12 @@ body,
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.reveal-zone:hover .reveal-left,
+.reveal-left:focus-visible {
+  opacity: 1;
 }
 .reveal-left:hover {
   color: var(--text);
