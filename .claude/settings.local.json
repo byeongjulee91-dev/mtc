@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npx vite *)",
+      "Bash(echo \"PID=$!\")",
+      "Read(//tmp/**)",
+      "Bash(echo \"TSC=$?\")",
+      "Bash(uv *)",
+      "Bash(docker *)",
+      "Bash(wait)",
+      "Bash(uv add *)",
+      "Bash(curl -sSI https://pypi.org/simple/uv/)",
+      "WebSearch",
+      "WebFetch(domain:developer.siemens.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api *)",
+      "Bash(git *)",
+      "Bash(pnpm *)",
+      "Bash(./run.sh *)",
+      "Bash(grep *)",
+      "Bash(ls *)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}

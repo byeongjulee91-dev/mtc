@@ -35,6 +35,18 @@
   function sendQuery(text: string) {
     bus.send(text, true);
   }
+  let copiedId = $state<string | null>(null);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  async function copyText(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      copiedId = id;
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(() => (copiedId = null), 1200);
+    } catch {
+      /* clipboard unavailable (e.g. insecure context) — ignore */
+    }
+  }
 </script>
 
 <div class="panel-head">
@@ -103,9 +115,20 @@
         <div class="empty">No todos yet.</div>
       {:else}
         {#each app.activeProject.todos as t (t.id)}
-          <div class="list-row">
+          <div class="list-row top">
             <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
-            <span class="grow" class:done={t.done}>{t.text}</span>
+            <span class="grow wrap" class:done={t.done}>{t.text}</span>
+            <button
+              class="btn icon"
+              title="Send to focused terminal"
+              disabled={!bus.hasFocus}
+              onclick={() => sendQuery(t.text)}>➤</button
+            >
+            <button
+              class="btn icon"
+              title={copiedId === t.id ? 'Copied!' : 'Copy'}
+              onclick={() => copyText(t.id, t.text)}>{copiedId === t.id ? '✓' : '⧉'}</button
+            >
             <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
           </div>
         {/each}
