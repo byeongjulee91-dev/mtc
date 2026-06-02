@@ -35,6 +35,9 @@
   function sendQuery(text: string) {
     bus.send(text, true);
   }
+  function sendQueryAll(text: string) {
+    bus.sendAll(text, true);
+  }
   // Drag a todo/query onto a terminal pane to insert its text into that
   // session's input (see TerminalPane's drop handler). The text is shared via
   // `bus.dragText` so panes can accept the drop even in WebViews that strip
@@ -253,6 +256,12 @@
                 title="Send to focused terminal"
                 disabled={!bus.hasFocus}
                 onclick={() => sendQuery(q.text)}>➤</button
+              >
+              <button
+                class="btn icon"
+                title="Send to all sessions"
+                disabled={!bus.hasFocus}
+                onclick={() => sendQueryAll(q.text)}>⇶</button
               >
               <button
                 class="btn icon"

@@ -60,6 +60,9 @@
     }
   });
 
+  // Join the broadcast pool so side panels can send to every session at once.
+  bus.register(sendToSession);
+
   onMount(async () => {
     term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "Consolas", monospace',
@@ -187,6 +190,7 @@
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
     if (bus.send === sendToSession) bus.send = () => {};
+    bus.unregister(sendToSession);
     if (sessionId !== null) void closeSession(sessionId);
     term?.dispose();
   });

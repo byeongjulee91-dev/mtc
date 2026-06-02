@@ -5,9 +5,16 @@ import type { Dir } from './tiling';
  * terminal pane without prop-drilling through the tiling tree. The focused
  * pane registers its sender here; panels call `bus.send(...)`.
  */
+type Sender = (text: string, enter?: boolean) => void;
+
 class Bus {
   /** Send text to the focused terminal session (optionally followed by Enter). */
-  send: (text: string, enter?: boolean) => void = () => {};
+  send: Sender = () => {};
+  /**
+   * Every open terminal's sender. Panes register on mount and unregister on
+   * destroy so `sendAll` can broadcast to all sessions at once (e.g. `/clear`).
+   */
+  #senders = new Set<Sender>();
   /**
    * Move terminal focus to the spatially adjacent pane (Alt+Arrow). The tiling
    * container registers this; the focused terminal's key handler calls it.
@@ -24,6 +31,17 @@ class Bus {
    * make panes reject the drop (the "no-drop" cursor).
    */
   dragText = $state<string | null>(null);
+
+  register(fn: Sender) {
+    this.#senders.add(fn);
+  }
+  unregister(fn: Sender) {
+    this.#senders.delete(fn);
+  }
+  /** Broadcast text to every open terminal session (optionally followed by Enter). */
+  sendAll(text: string, enter = false) {
+    for (const fn of this.#senders) fn(text, enter);
+  }
 }
 
 export const bus = new Bus();
