@@ -47,6 +47,42 @@
       e.dataTransfer.effectAllowed = 'copy';
     }
   }
+
+  // --- inline editing ---
+  let editingTodoId = $state<string | null>(null);
+  let editTodoText = $state('');
+  function startEditTodo(id: string, text: string) {
+    editingTodoId = id;
+    editTodoText = text;
+  }
+  function saveEditTodo() {
+    if (editingTodoId === null) return;
+    const t = editTodoText.trim();
+    if (t) app.editTodo(editingTodoId, t);
+    editingTodoId = null;
+  }
+  function cancelEditTodo() {
+    editingTodoId = null;
+  }
+
+  let editingQueryId = $state<string | null>(null);
+  let editQueryName = $state('');
+  let editQueryText = $state('');
+  function startEditQuery(id: string, name: string, text: string) {
+    editingQueryId = id;
+    editQueryName = name;
+    editQueryText = text;
+  }
+  function saveEditQuery() {
+    if (editingQueryId === null) return;
+    const n = editQueryName.trim();
+    const t = editQueryText.trim();
+    if (n && t) app.editQuery(editingQueryId, n, t);
+    editingQueryId = null;
+  }
+  function cancelEditQuery() {
+    editingQueryId = null;
+  }
   let copiedId = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   async function copyText(id: string, text: string) {
@@ -129,32 +165,48 @@
         <div class="empty">No todos yet.</div>
       {:else}
         {#each app.activeProject.todos as t (t.id)}
-          <div class="list-row top row-float">
-            <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
-            <span
-              class="grow wrap"
-              class:done={t.done}
-              draggable="true"
-              role="presentation"
-              ondragstart={(e) => startDrag(e, t.text)}
-              ondragend={() => (bus.dragText = null)}
-              title="Drag onto a terminal to insert">{t.text}</span
-            >
-            <div class="row-actions">
-              <button
-                class="btn icon"
-                title="Send to focused terminal"
-                disabled={!bus.hasFocus}
-                onclick={() => sendQuery(t.text)}>➤</button
-              >
-              <button
-                class="btn icon"
-                title={copiedId === t.id ? 'Copied!' : 'Copy'}
-                onclick={() => copyText(t.id, t.text)}>{copiedId === t.id ? '✓' : '⧉'}</button
-              >
-              <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+          {#if editingTodoId === t.id}
+            <div class="list-row top">
+              <input
+                class="field grow"
+                bind:value={editTodoText}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') saveEditTodo();
+                  else if (e.key === 'Escape') cancelEditTodo();
+                }}
+              />
+              <button class="btn icon" title="Save" onclick={saveEditTodo}>✓</button>
+              <button class="btn icon" title="Cancel" onclick={cancelEditTodo}>✕</button>
             </div>
-          </div>
+          {:else}
+            <div class="list-row top row-float">
+              <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
+              <span
+                class="grow wrap"
+                class:done={t.done}
+                draggable="true"
+                role="presentation"
+                ondragstart={(e) => startDrag(e, t.text)}
+                ondragend={() => (bus.dragText = null)}
+                title="Drag onto a terminal to insert">{t.text}</span
+              >
+              <div class="row-actions">
+                <button
+                  class="btn icon"
+                  title="Send to focused terminal"
+                  disabled={!bus.hasFocus}
+                  onclick={() => sendQuery(t.text)}>➤</button
+                >
+                <button class="btn icon" title="Edit" onclick={() => startEditTodo(t.id, t.text)}>✎</button>
+                <button
+                  class="btn icon"
+                  title={copiedId === t.id ? 'Copied!' : 'Copy'}
+                  onclick={() => copyText(t.id, t.text)}>{copiedId === t.id ? '✓' : '⧉'}</button
+                >
+                <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+              </div>
+            </div>
+          {/if}
         {/each}
       {/if}
     {/if}
@@ -168,33 +220,54 @@
       <div class="empty">No saved queries.</div>
     {:else}
       {#each app.data.queries as q (q.id)}
-        <div class="list-row top row-float">
-          <div
-            class="grow wrap"
-            draggable="true"
-            role="presentation"
-            ondragstart={(e) => startDrag(e, q.text)}
-            ondragend={() => (bus.dragText = null)}
-            title="Drag onto a terminal to insert"
-          >
-            <div>{q.name}</div>
-            <div class="muted query-text">{q.text}</div>
+        {#if editingQueryId === q.id}
+          <div class="list-row top" style="flex-direction:column;align-items:stretch;gap:6px">
+            <input class="field" placeholder="Query name" bind:value={editQueryName} />
+            <textarea
+              class="field"
+              rows="2"
+              placeholder="Query text sent to the focused terminal"
+              bind:value={editQueryText}
+            ></textarea>
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <button class="btn icon" title="Save" onclick={saveEditQuery}>✓</button>
+              <button class="btn icon" title="Cancel" onclick={cancelEditQuery}>✕</button>
+            </div>
           </div>
-          <div class="row-actions">
-            <button
-              class="btn icon"
-              title="Send to focused terminal"
-              disabled={!bus.hasFocus}
-              onclick={() => sendQuery(q.text)}>➤</button
+        {:else}
+          <div class="list-row top row-float">
+            <div
+              class="grow wrap"
+              draggable="true"
+              role="presentation"
+              ondragstart={(e) => startDrag(e, q.text)}
+              ondragend={() => (bus.dragText = null)}
+              title="Drag onto a terminal to insert"
             >
-            <button
-              class="btn icon"
-              title={copiedId === q.id ? 'Copied!' : 'Copy'}
-              onclick={() => copyText(q.id, q.text)}>{copiedId === q.id ? '✓' : '⧉'}</button
-            >
-            <button class="btn icon" title="Delete" onclick={() => app.deleteQuery(q.id)}>✕</button>
+              <div>{q.name}</div>
+              <div class="muted query-text">{q.text}</div>
+            </div>
+            <div class="row-actions">
+              <button
+                class="btn icon"
+                title="Send to focused terminal"
+                disabled={!bus.hasFocus}
+                onclick={() => sendQuery(q.text)}>➤</button
+              >
+              <button
+                class="btn icon"
+                title="Edit"
+                onclick={() => startEditQuery(q.id, q.name, q.text)}>✎</button
+              >
+              <button
+                class="btn icon"
+                title={copiedId === q.id ? 'Copied!' : 'Copy'}
+                onclick={() => copyText(q.id, q.text)}>{copiedId === q.id ? '✓' : '⧉'}</button
+              >
+              <button class="btn icon" title="Delete" onclick={() => app.deleteQuery(q.id)}>✕</button>
+            </div>
           </div>
-        </div>
+        {/if}
       {/each}
     {/if}
   {/if}

@@ -80,6 +80,11 @@ class AppState {
     if (t) t.done = !t.done;
     this.scheduleSave();
   }
+  editTodo(id: string, text: string): void {
+    const t = this.activeProject?.todos.find((x) => x.id === id);
+    if (t) t.text = text;
+    this.scheduleSave();
+  }
   deleteTodo(id: string): void {
     const project = this.activeProject;
     if (!project) return;
@@ -90,6 +95,14 @@ class AppState {
   // --- queries (global, shared across projects) ---
   addQuery(name: string, text: string): void {
     this.data.queries.push({ id: uid(), name, text });
+    this.scheduleSave();
+  }
+  editQuery(id: string, name: string, text: string): void {
+    const q = this.data.queries.find((x) => x.id === id);
+    if (q) {
+      q.name = name;
+      q.text = text;
+    }
     this.scheduleSave();
   }
   deleteQuery(id: string): void {
