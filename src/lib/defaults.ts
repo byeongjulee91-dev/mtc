@@ -45,7 +45,7 @@ export function uid(): string {
 export function defaultProfiles(): Profile[] {
   return [
     { id: 'claude', name: 'Claude', color: '#d97757', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'wsl' },
-    { id: 'claude-powershell', name: 'Claude (PowerShell)', color: '#5391fe', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'powershell' },
+    { id: 'claude-powershell', name: 'Claude (PS)', color: '#d97757', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'powershell' },
     { id: 'codex', name: 'Codex', color: '#10a37f', distro: '', cwd: '', command: 'codex', keepOpen: true, shell: 'wsl' },
     { id: 'shell', name: 'WSL Shell', color: '#4a9eff', distro: '', cwd: '', command: '', keepOpen: false, shell: 'wsl' },
     { id: 'powershell', name: 'PowerShell', color: '#5391fe', distro: '', cwd: '', command: '', keepOpen: false, shell: 'powershell' },
