@@ -15,6 +15,15 @@ class Bus {
   focusDir: (dir: Dir) => void = () => {};
   /** Whether at least one terminal pane is open. */
   hasFocus = $state(false);
+  /**
+   * Text currently being dragged from a side panel (a todo/query), or `null`
+   * when no such drag is in progress. Terminal panes read this to accept the
+   * drop and insert the text. We keep it here rather than relying solely on
+   * `DataTransfer` because some WebViews (notably WebView2) strip custom MIME
+   * types from `dataTransfer.types` during `dragover`, which would otherwise
+   * make panes reject the drop (the "no-drop" cursor).
+   */
+  dragText = $state<string | null>(null);
 }
 
 export const bus = new Bus();

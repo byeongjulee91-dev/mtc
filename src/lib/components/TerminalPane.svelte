@@ -31,19 +31,25 @@
   // Accept todos/queries dragged from the side panel. Dropping inserts the text
   // into *this* session's input (no Enter) so it lands in the specific terminal
   // under the cursor rather than the focused one — and the user can edit/submit.
+  // We gate on `bus.dragText` (set on dragstart) rather than the DataTransfer
+  // MIME type, which WebView2 strips during dragover; `preventDefault()` here is
+  // what turns the cursor from "no-drop" into a valid copy target.
   function onDragOver(e: DragEvent) {
-    if (!e.dataTransfer?.types.includes(INSERT_DRAG_TYPE)) return;
+    if (bus.dragText === null) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     dragOver = true;
   }
   function onDrop(e: DragEvent) {
     dragOver = false;
-    const text = e.dataTransfer?.getData(INSERT_DRAG_TYPE);
+    const text = bus.dragText ?? e.dataTransfer?.getData(INSERT_DRAG_TYPE) ?? '';
     if (!text) return;
     e.preventDefault();
     term?.focus();
-    sendToSession(text);
+    if (sessionId !== null) sendToSession(text);
+    // Standalone/no-backend (`npm run dev`): there is no PTY to write to, so
+    // echo into the local xterm to make the drop visible while testing.
+    else term?.write(text);
   }
 
   // The active pane owns the shared sender used by the side panels.

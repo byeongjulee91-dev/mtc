@@ -36,13 +36,16 @@
     bus.send(text, true);
   }
   // Drag a todo/query onto a terminal pane to insert its text into that
-  // session's input (see TerminalPane's drop handler). The custom MIME type
-  // scopes the drop so panes ignore unrelated text/file drags.
+  // session's input (see TerminalPane's drop handler). The text is shared via
+  // `bus.dragText` so panes can accept the drop even in WebViews that strip
+  // custom MIME types; the DataTransfer copy is a native/standards fallback.
   function startDrag(e: DragEvent, text: string) {
-    if (!e.dataTransfer) return;
-    e.dataTransfer.setData(INSERT_DRAG_TYPE, text);
-    e.dataTransfer.setData('text/plain', text);
-    e.dataTransfer.effectAllowed = 'copy';
+    bus.dragText = text;
+    if (e.dataTransfer) {
+      e.dataTransfer.setData(INSERT_DRAG_TYPE, text);
+      e.dataTransfer.setData('text/plain', text);
+      e.dataTransfer.effectAllowed = 'copy';
+    }
   }
   let copiedId = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -134,6 +137,7 @@
               draggable="true"
               role="presentation"
               ondragstart={(e) => startDrag(e, t.text)}
+              ondragend={() => (bus.dragText = null)}
               title="Drag onto a terminal to insert">{t.text}</span
             >
             <div class="row-actions">
@@ -170,6 +174,7 @@
             draggable="true"
             role="presentation"
             ondragstart={(e) => startDrag(e, q.text)}
+            ondragend={() => (bus.dragText = null)}
             title="Drag onto a terminal to insert"
           >
             <div>{q.name}</div>
