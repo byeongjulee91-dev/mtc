@@ -115,21 +115,23 @@
         <div class="empty">No todos yet.</div>
       {:else}
         {#each app.activeProject.todos as t (t.id)}
-          <div class="list-row top">
+          <div class="list-row top todo-row">
             <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
             <span class="grow wrap" class:done={t.done}>{t.text}</span>
-            <button
-              class="btn icon"
-              title="Send to focused terminal"
-              disabled={!bus.hasFocus}
-              onclick={() => sendQuery(t.text)}>➤</button
-            >
-            <button
-              class="btn icon"
-              title={copiedId === t.id ? 'Copied!' : 'Copy'}
-              onclick={() => copyText(t.id, t.text)}>{copiedId === t.id ? '✓' : '⧉'}</button
-            >
-            <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+            <div class="todo-actions">
+              <button
+                class="btn icon"
+                title="Send to focused terminal"
+                disabled={!bus.hasFocus}
+                onclick={() => sendQuery(t.text)}>➤</button
+              >
+              <button
+                class="btn icon"
+                title={copiedId === t.id ? 'Copied!' : 'Copy'}
+                onclick={() => copyText(t.id, t.text)}>{copiedId === t.id ? '✓' : '⧉'}</button
+              >
+              <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+            </div>
           </div>
         {/each}
       {/if}

@@ -158,6 +158,30 @@ button {
   align-items: flex-start;
 }
 
+/* Todo rows: actions float over the bottom-right so the text gets full width.
+   Reserve a little bottom padding so the last line isn't hidden behind them. */
+.todo-row {
+  position: relative;
+  padding-bottom: 8px;
+}
+.todo-actions {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.todo-row:hover .todo-actions,
+.todo-actions:focus-within {
+  opacity: 1;
+}
+
 input.field,
 textarea.field {
   width: 100%;
