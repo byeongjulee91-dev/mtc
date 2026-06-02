@@ -36,4 +36,11 @@ source of truth. When working in a subdirectory, also read that directory's
 5. **Generated, don't hand-edit** — `src-tauri/icons/` (via `npm run tauri icon`)
    and `src-tauri/gen/` (Tauri codegen).
 
+## Git workflow
+
+- **Commit and push directly on `main`.** When reflecting changes to git, commit
+  on the `main` branch and push immediately — no feature branches or PRs.
+- After making an edit, commit and push it right away (`git add`, `git commit`,
+  `git push`) rather than batching unrelated changes.
+
 @AGENTS.md
