@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vite *)",
       "Bash(uv *)",
       "Bash(docker *)",
       "Bash(wait)",
@@ -9,7 +8,18 @@
       "WebFetch(domain:github.com)",
       "Bash(gh *)",
       "Bash(git *)",
-      "Bash(npm *)"
+      "Bash(npm *)",
+      "Bash(cargo *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "PowerShell(git *)",
+      "PowerShell(uv *)",
+      "PowerShell(docker *)",
+      "PowerShell(gh *)",
+      "PowerShell(npm *)",
+      "PowerShell(cargo *)",
+      "PowerShell(npx *)",
+      "PowerShell(node *)"
     ],
     "defaultMode": "acceptEdits"
   }
