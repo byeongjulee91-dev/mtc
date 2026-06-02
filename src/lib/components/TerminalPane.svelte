@@ -11,10 +11,15 @@
 
   interface Props {
     profile: Profile;
+    /** This is the focused pane within its workspace. */
     active: boolean;
+    /** This pane's workspace is the one currently shown (not a warm, hidden
+     *  project). Hidden panes opt out of `bus.send`/broadcast and re-fit when
+     *  shown again. Defaults to true so single-workspace callers need not pass it. */
+    visible?: boolean;
     onexit?: () => void;
   }
-  let { profile, active, onexit }: Props = $props();
+  let { profile, active, visible = true, onexit }: Props = $props();
 
   let host: HTMLDivElement;
   let term: Terminal | null = null;
@@ -52,16 +57,35 @@
     else term?.write(text);
   }
 
-  // The active pane owns the shared sender used by the side panels.
+  // The active *and* visible pane owns the shared sender used by the side
+  // panels; otherwise it relinquishes ownership (guarded so we never clobber
+  // another pane's claim). The guard makes the hand-off order-independent when
+  // switching projects.
   $effect(() => {
-    if (active && ready && term) {
+    if (active && visible && ready && term) {
       term.focus();
       bus.send = sendToSession;
+    } else if (bus.send === sendToSession) {
+      bus.send = () => {};
     }
   });
 
-  // Join the broadcast pool so side panels can send to every session at once.
-  bus.register(sendToSession);
+  // Join the broadcast pool only while visible, so `sendAll` (e.g. /clear)
+  // reaches just the active project's sessions — warm, hidden panes opt out.
+  $effect(() => {
+    if (!visible) return;
+    bus.register(sendToSession);
+    return () => bus.unregister(sendToSession);
+  });
+
+  // Re-fit when this pane's project becomes active again after being hidden:
+  // xterm can't measure under display:none, so its dimensions are stale. (The
+  // ResizeObserver also fires on the 0→size change, but this is deterministic.)
+  $effect(() => {
+    if (!visible || !ready || !term) return;
+    safeFit();
+    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+  });
 
   onMount(async () => {
     term = new Terminal({

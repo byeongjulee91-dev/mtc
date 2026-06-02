@@ -1,4 +1,10 @@
-import type { AppData, Profile, Project, Todo, SavedQuery } from './types';
+import type { AppData, LayoutNode, Profile, Project, Todo, SavedQuery } from './types';
+
+/**
+ * Bucket key for the "Unfiled" workspace — sessions opened while no project is
+ * selected. A real project id is a uuid, so this sentinel can never collide.
+ */
+export const UNFILED_KEY = '__unfiled__';
 
 /** Terminal font-size bounds and default, shared by all panes. */
 export const DEFAULT_FONT_SIZE = 15;
@@ -67,6 +73,30 @@ function normalizeProfile(p: Partial<Profile> & { id: string }): Profile {
   };
 }
 
+/**
+ * Coerce a loaded blob into a valid `LayoutNode` tree, or `null` when it is
+ * missing/malformed. Recurses defensively so a corrupt persisted layout can
+ * never crash startup — any bad subtree collapses to `null`.
+ */
+function normalizeLayout(raw: unknown): LayoutNode | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const node = raw as Record<string, unknown>;
+  if (node.kind === 'leaf') {
+    return typeof node.profileId === 'string' ? { kind: 'leaf', profileId: node.profileId } : null;
+  }
+  if (node.kind === 'split') {
+    const first = normalizeLayout(node.first);
+    const second = normalizeLayout(node.second);
+    // A split needs both children; if one is gone, the survivor takes its place.
+    if (!first) return second;
+    if (!second) return first;
+    const dir = node.dir === 'h' ? 'h' : 'v';
+    const ratio = typeof node.ratio === 'number' && Number.isFinite(node.ratio) ? node.ratio : 0.5;
+    return { kind: 'split', dir, ratio, first, second };
+  }
+  return null;
+}
+
 /** Coerce a hotkey blob into a valid digit (1–9) or `null`. */
 function normalizeHotkey(h: unknown): number | null {
   if (typeof h !== 'number' || !Number.isFinite(h)) return null;
@@ -106,6 +136,7 @@ export function defaultAppData(): AppData {
     activeProjectId: null,
     queries: [],
     profiles: defaultProfiles(),
+    unfiledLayout: null,
     skillRoots: [],
     terminalFontSize: DEFAULT_FONT_SIZE,
     leftPanelWidth: DEFAULT_LEFT_WIDTH,
@@ -140,6 +171,7 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
         profiles: Array.isArray(p.profiles)
           ? p.profiles.filter((pr) => pr && typeof pr.id === 'string').map(normalizeProfile)
           : [],
+        layout: normalizeLayout((p as { layout?: unknown }).layout),
       }))
     : migrateLegacyProjects(raw);
 
@@ -160,6 +192,7 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
       Array.isArray(raw.profiles) && raw.profiles.length
         ? raw.profiles.filter((p) => p && typeof p.id === 'string').map(normalizeProfile)
         : base.profiles,
+    unfiledLayout: normalizeLayout((raw as { unfiledLayout?: unknown }).unfiledLayout),
     skillRoots: Array.isArray(raw.skillRoots) ? raw.skillRoots : [],
     terminalFontSize:
       typeof raw.terminalFontSize === 'number' ? clampFontSize(raw.terminalFontSize) : base.terminalFontSize,
@@ -187,12 +220,13 @@ function migrateLegacyProjects(raw: LegacyAppData): Project[] {
         path: f.path,
         todos: [],
         profiles: [],
+        layout: null,
       }))
     : [];
   const legacyTodos = Array.isArray(raw.todos) ? raw.todos : [];
   if (legacyTodos.length) {
     if (projects.length === 0) {
-      projects.push({ id: uid(), name: 'General', path: '', todos: [], profiles: [] });
+      projects.push({ id: uid(), name: 'General', path: '', todos: [], profiles: [], layout: null });
     }
     projects[0].todos = legacyTodos;
   }

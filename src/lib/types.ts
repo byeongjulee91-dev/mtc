@@ -59,6 +59,28 @@ export interface Skill {
 }
 
 /**
+ * Persisted tiling layout for a workspace's terminal sessions. It mirrors the
+ * runtime `TileNode` tree (see `tiling.ts`) but leaves reference a *profile id*
+ * instead of a live numeric pane id, so a layout can be saved across runs and
+ * re-spawned into fresh sessions. A leaf whose `profileId` no longer resolves
+ * (profile deleted) is dropped on restore.
+ */
+export type LayoutNode = LayoutLeaf | LayoutSplit;
+
+export interface LayoutLeaf {
+  kind: 'leaf';
+  profileId: string;
+}
+
+export interface LayoutSplit {
+  kind: 'split';
+  dir: 'v' | 'h';
+  ratio: number;
+  first: LayoutNode;
+  second: LayoutNode;
+}
+
+/**
  * A project is a working directory with its own todos. Selecting a project sets
  * where new sessions open (`path` is passed to WSL as `--cd <path>`, so it is a
  * Linux-style path like `/mnt/c/Users/me/project` or `~/work`) and scopes the
@@ -75,6 +97,14 @@ export interface Project {
    * (`AppData.profiles`) ones, but only while this project is active.
    */
   profiles: Profile[];
+  /**
+   * Persisted terminal layout for this project: the tiling tree of sessions
+   * (by profile reference) that is re-spawned when the project is first opened
+   * in a run. `null` = no remembered layout (start empty). Live sessions stay
+   * warm across in-run project switches; this only drives restore on launch and
+   * after a manual park.
+   */
+  layout: LayoutNode | null;
 }
 
 /** Persisted application data (projects, global queries, profiles, skills). */
@@ -86,6 +116,11 @@ export interface AppData {
   /** Saved queries, shared across all projects. */
   queries: SavedQuery[];
   profiles: Profile[];
+  /**
+   * Persisted layout for the "Unfiled" workspace — sessions opened while no
+   * project is selected. Mirrors `Project.layout`. `null` = none.
+   */
+  unfiledLayout: LayoutNode | null;
   /** Directories scanned for skills (host paths or \\wsl.localhost\... UNC paths). */
   skillRoots: string[];
   /** Shared xterm font size (px) applied to every terminal pane. */

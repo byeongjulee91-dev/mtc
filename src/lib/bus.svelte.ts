@@ -28,7 +28,20 @@ class Bus {
   splitDir: (dir: 'v' | 'h') => void = () => {};
   /** Close the focused pane (Ctrl+W). Same registration/call pattern. */
   closeFocused: () => void = () => {};
-  /** Whether at least one terminal pane is open. */
+  /**
+   * Park a workspace bucket: kill its live sessions (freeing memory) while
+   * keeping its persisted layout, so revisiting it re-spawns from scratch.
+   * Registered by the tiling container; the left panel's park button calls it.
+   * Parking the *active* bucket is a no-op (it would just respawn immediately).
+   */
+  parkProject: (key: string) => void = () => {};
+  /**
+   * Live (warm) session counts per workspace bucket key, kept in sync by the
+   * tiling container. The left panel reads it to show a badge and a park button
+   * on projects that currently hold running sessions.
+   */
+  liveCounts = $state<Record<string, number>>({});
+  /** Whether at least one terminal pane is open in the active workspace. */
   hasFocus = $state(false);
   /**
    * Text currently being dragged from a side panel (a todo/query), or `null`

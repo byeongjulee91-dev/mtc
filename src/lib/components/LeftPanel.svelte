@@ -153,6 +153,16 @@
               {/if}
             </span>
           </button>
+          {#if bus.liveCounts[p.id]}
+            <span class="live-badge" title="{bus.liveCounts[p.id]} live session(s)">{bus.liveCounts[p.id]}</span>
+            {#if app.data.activeProjectId !== p.id}
+              <button
+                class="btn icon"
+                title="Park — close this project's {bus.liveCounts[p.id]} session(s) to free memory (layout is kept; reopens on next visit)"
+                onclick={() => bus.parkProject(p.id)}>⏸</button
+              >
+            {/if}
+          {/if}
           <button class="btn icon" title="Delete" onclick={() => app.removeProject(p.id)}>✕</button>
         </div>
       {/each}
@@ -326,3 +336,18 @@
     {/if}
   {/if}
 </div>
+
+<style>
+  /* Count of warm (live) terminal sessions a project currently holds. */
+  .live-badge {
+    flex: 0 0 auto;
+    min-width: 16px;
+    text-align: center;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 16px;
+    color: var(--bg);
+    background: var(--accent);
+  }
+</style>

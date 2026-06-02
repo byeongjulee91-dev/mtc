@@ -1,5 +1,5 @@
-import type { AppData, Profile, Skill, Todo, SavedQuery, Project } from './types';
-import { DEFAULT_FONT_SIZE, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
+import type { AppData, LayoutNode, Profile, Skill, Todo, SavedQuery, Project } from './types';
+import { DEFAULT_FONT_SIZE, UNFILED_KEY, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
 import { loadAppData, saveAppData, scanSkills } from './api';
 
 /**
@@ -53,7 +53,7 @@ class AppState {
     // De-dupe on the path so the same directory isn't added twice.
     const existing = this.data.projects.find((p) => p.path === trimmed);
     if (existing) return existing;
-    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [], profiles: [] };
+    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [], profiles: [], layout: null };
     this.data.projects.push(project);
     this.scheduleSave();
     return project;
@@ -65,6 +65,25 @@ class AppState {
   }
   selectProject(id: string): void {
     this.data.activeProjectId = id;
+    this.scheduleSave();
+  }
+
+  // --- per-workspace terminal layout (persisted; drives restore on launch) ---
+  /** The saved layout for a bucket (`UNFILED_KEY` or a project id), or null. */
+  layoutFor(key: string): LayoutNode | null {
+    if (key === UNFILED_KEY) return this.data.unfiledLayout;
+    return this.data.projects.find((p) => p.id === key)?.layout ?? null;
+  }
+  /** Persist the terminal layout for a bucket. A missing project id is ignored
+   *  (it may have just been deleted). */
+  setLayout(key: string, layout: LayoutNode | null): void {
+    if (key === UNFILED_KEY) {
+      this.data.unfiledLayout = layout;
+    } else {
+      const p = this.data.projects.find((x) => x.id === key);
+      if (!p) return;
+      p.layout = layout;
+    }
     this.scheduleSave();
   }
 
