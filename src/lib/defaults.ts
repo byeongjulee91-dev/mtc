@@ -38,10 +38,14 @@ export function uid(): string {
   return 'id-' + Math.floor(Math.random() * 1e9).toString(36);
 }
 
-/** Seed profiles for a fresh install: claude, codex, a WSL shell, and PowerShell. */
+/**
+ * Seed profiles for a fresh install: Claude (WSL), Claude on PowerShell, codex,
+ * a WSL shell, and a plain PowerShell.
+ */
 export function defaultProfiles(): Profile[] {
   return [
     { id: 'claude', name: 'Claude', color: '#d97757', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'wsl' },
+    { id: 'claude-powershell', name: 'Claude (PowerShell)', color: '#5391fe', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'powershell' },
     { id: 'codex', name: 'Codex', color: '#10a37f', distro: '', cwd: '', command: 'codex', keepOpen: true, shell: 'wsl' },
     { id: 'shell', name: 'WSL Shell', color: '#4a9eff', distro: '', cwd: '', command: '', keepOpen: false, shell: 'wsl' },
     { id: 'powershell', name: 'PowerShell', color: '#5391fe', distro: '', cwd: '', command: '', keepOpen: false, shell: 'powershell' },
