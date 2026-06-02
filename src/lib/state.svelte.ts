@@ -72,7 +72,7 @@ class AppState {
   addTodo(text: string): void {
     const project = this.activeProject;
     if (!project) return;
-    project.todos.push({ id: uid(), text, done: false });
+    project.todos.unshift({ id: uid(), text, done: false });
     this.scheduleSave();
   }
   toggleTodo(id: string): void {
