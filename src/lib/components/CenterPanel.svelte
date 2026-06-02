@@ -50,6 +50,11 @@
     if (maximizedId !== null) maximizedId = next;
   }
   bus.focusDir = focusNeighbor;
+  bus.toggleMax = toggleMax;
+  bus.splitDir = splitFocused;
+  bus.closeFocused = () => {
+    if (focusedId !== null) closePane(focusedId);
+  };
 
   function addPane(profile: Profile, dir: 'v' | 'h') {
     const id = nextId++;
@@ -113,11 +118,11 @@
       📁 {app.activeProject.name || app.activeProject.path}
     </span>
   {/if}
-  <button class="btn icon" title="Split vertical" onclick={() => splitFocused('v')}>◧</button>
-  <button class="btn icon" title="Split horizontal" onclick={() => splitFocused('h')}>⬓</button>
+  <button class="btn icon" title="Split vertical (Alt+Shift++)" onclick={() => splitFocused('v')}>◧</button>
+  <button class="btn icon" title="Split horizontal (Alt+Shift+-)" onclick={() => splitFocused('h')}>⬓</button>
   <button class="btn icon" title="Distribute panes evenly" onclick={equalizePanes}>⊞</button>
-  <button class="btn icon" title="Maximize / restore" onclick={toggleMax}>⛶</button>
-  <button class="btn icon" title="Close focused" onclick={() => focusedId !== null && closePane(focusedId)}>✕</button>
+  <button class="btn icon" title="Maximize / restore (Alt+Enter)" onclick={toggleMax}>⛶</button>
+  <button class="btn icon" title="Close focused (Ctrl+W)" onclick={() => focusedId !== null && closePane(focusedId)}>✕</button>
 </div>
 
 <div class="tiles">

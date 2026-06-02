@@ -154,8 +154,8 @@
   };
 
   // Intercept shortcuts before they reach the PTY (return false stops xterm from
-  // handling them): Alt+Arrow moves focus to the neighbouring pane; Ctrl +/-/0
-  // zooms the shared terminal font.
+  // handling them): Alt+Arrow moves focus to the neighbouring pane; Alt+Enter
+  // maximizes; Alt+Shift++/- splits; Ctrl+W closes; Ctrl +/-/0 zooms the font.
   function onKey(e: KeyboardEvent): boolean {
     if (e.type !== 'keydown') return true;
     if (e.altKey && !e.ctrlKey && !e.metaKey) {
@@ -165,6 +165,28 @@
         bus.focusDir(dir);
         return false;
       }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        bus.toggleMax();
+        return false;
+      }
+      // Use e.code (physical key) so Shift doesn't remap '-'→'_' / '='→'+':
+      // Alt+Shift+= splits side-by-side, Alt+Shift+- splits stacked.
+      if (e.shiftKey && e.code === 'Equal') {
+        e.preventDefault();
+        bus.splitDir('v');
+        return false;
+      }
+      if (e.shiftKey && e.code === 'Minus') {
+        e.preventDefault();
+        bus.splitDir('h');
+        return false;
+      }
+    }
+    if (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === 'w' || e.key === 'W')) {
+      e.preventDefault();
+      bus.closeFocused();
+      return false;
     }
     if (!e.ctrlKey) return true;
     switch (e.key) {

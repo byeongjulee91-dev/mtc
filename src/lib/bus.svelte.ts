@@ -20,6 +20,14 @@ class Bus {
    * container registers this; the focused terminal's key handler calls it.
    */
   focusDir: (dir: Dir) => void = () => {};
+  /** Maximize / restore the focused pane (Alt+Enter). Registered by the tiling
+   *  container; the focused terminal's key handler calls it. */
+  toggleMax: () => void = () => {};
+  /** Split the focused pane: 'v' side-by-side (Alt+Shift++), 'h' stacked
+   *  (Alt+Shift+-). Same registration/call pattern as `focusDir`. */
+  splitDir: (dir: 'v' | 'h') => void = () => {};
+  /** Close the focused pane (Ctrl+W). Same registration/call pattern. */
+  closeFocused: () => void = () => {};
   /** Whether at least one terminal pane is open. */
   hasFocus = $state(false);
   /**
