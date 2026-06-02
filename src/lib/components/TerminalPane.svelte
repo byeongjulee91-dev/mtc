@@ -4,6 +4,7 @@
   import { FitAddon } from '@xterm/addon-fit';
   import '@xterm/xterm/css/xterm.css';
   import type { Profile } from '../types';
+  import type { Dir } from '../tiling';
   import { app } from '../state.svelte';
   import { bus } from '../bus.svelte';
   import { createSession, writeSession, resizeSession, closeSession } from '../api';
@@ -117,9 +118,27 @@
     app.adjustTerminalFontSize(e.deltaY < 0 ? 1 : -1);
   }
 
-  // Ctrl + '=' / '+' to grow, Ctrl + '-' to shrink, Ctrl + '0' to reset.
+  const ARROW_DIR: Record<string, Dir | undefined> = {
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+  };
+
+  // Intercept shortcuts before they reach the PTY (return false stops xterm from
+  // handling them): Alt+Arrow moves focus to the neighbouring pane; Ctrl +/-/0
+  // zooms the shared terminal font.
   function onKey(e: KeyboardEvent): boolean {
-    if (e.type !== 'keydown' || !e.ctrlKey) return true;
+    if (e.type !== 'keydown') return true;
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+      const dir = ARROW_DIR[e.key];
+      if (dir) {
+        e.preventDefault(); // also stop browser back/forward in standalone preview
+        bus.focusDir(dir);
+        return false;
+      }
+    }
+    if (!e.ctrlKey) return true;
     switch (e.key) {
       case '=':
       case '+':
