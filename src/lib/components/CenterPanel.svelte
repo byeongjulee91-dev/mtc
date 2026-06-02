@@ -5,6 +5,7 @@
     splitPane,
     removePane,
     paneOrder,
+    equalize,
     findNeighbor,
     type TileNode,
     type Box,
@@ -92,6 +93,12 @@
     if (focusedId === null) return;
     maximizedId = maximizedId === null ? focusedId : null;
   }
+
+  function equalizePanes() {
+    if (tree === null) return;
+    tree = equalize(tree);
+    maximizedId = null;
+  }
 </script>
 
 <div class="profile-bar">
@@ -108,6 +115,7 @@
   {/if}
   <button class="btn icon" title="Split vertical" onclick={() => splitFocused('v')}>◧</button>
   <button class="btn icon" title="Split horizontal" onclick={() => splitFocused('h')}>⬓</button>
+  <button class="btn icon" title="Distribute panes evenly" onclick={equalizePanes}>⊞</button>
   <button class="btn icon" title="Maximize / restore" onclick={toggleMax}>⛶</button>
   <button class="btn icon" title="Close focused" onclick={() => focusedId !== null && closePane(focusedId)}>✕</button>
 </div>

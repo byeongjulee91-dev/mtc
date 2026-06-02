@@ -66,6 +66,25 @@ export function paneOrder(root: TileNode): number[] {
   return [...paneOrder(root.first), ...paneOrder(root.second)];
 }
 
+/** Number of leaf panes in a subtree. */
+export function leafCount(root: TileNode): number {
+  if (root.type === 'leaf') return 1;
+  return leafCount(root.first) + leafCount(root.second);
+}
+
+/**
+ * Rebalance every split so all panes end up with equal area. At each node the
+ * ratio is set to the fraction of leaves that live in the `first` subtree, which
+ * makes each leaf occupy 1/N of the total area regardless of the tree shape.
+ */
+export function equalize(root: TileNode): TileNode {
+  if (root.type === 'leaf') return root;
+  const first = equalize(root.first);
+  const second = equalize(root.second);
+  const ratio = leafCount(first) / (leafCount(first) + leafCount(second));
+  return { ...root, ratio, first, second };
+}
+
 /** A spatial direction for Alt+Arrow focus navigation between panes. */
 export type Dir = 'left' | 'right' | 'up' | 'down';
 

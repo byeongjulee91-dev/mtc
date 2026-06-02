@@ -7,6 +7,8 @@ import {
   computeTiles,
   effectiveTiles,
   nudgeRatio,
+  equalize,
+  leafCount,
   findNeighbor,
   type Box,
 } from './tiling';
@@ -95,6 +97,25 @@ describe('tiling', () => {
     expect((wider as typeof tree).ratio).toBeCloseTo(0.7);
     const clamped = nudgeRatio(tree, 1, 5);
     expect((clamped as typeof tree).ratio).toBeLessThanOrEqual(0.9);
+  });
+
+  it('equalize gives every pane the same area regardless of tree shape', () => {
+    // Build a lopsided tree: [1 | (2 / (3 | 4))] then equalize to quarters.
+    let tree = splitPane(leaf(1), 1, 2, 'v');
+    tree = splitPane(tree, 2, 3, 'h');
+    tree = splitPane(tree, 3, 4, 'v');
+    expect(leafCount(tree)).toBe(4);
+
+    const balanced = equalize(tree);
+    const areas = [...computeTiles(balanced, AREA).values()].map((b) => b.width * b.height);
+    expect(areas).toHaveLength(4);
+    for (const a of areas) expect(a).toBeCloseTo(AREA.width * AREA.height * 0.25);
+  });
+
+  it('equalize sets a lone split back to half', () => {
+    const tree = nudgeRatio(splitPane(leaf(1), 1, 2, 'v'), 1, 0.3);
+    const balanced = equalize(tree) as Extract<typeof tree, { type: 'split' }>;
+    expect(balanced.ratio).toBeCloseTo(0.5);
   });
 });
 
