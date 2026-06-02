@@ -219,13 +219,14 @@ button {
   align-items: flex-start;
 }
 
-/* Todo rows: actions float over the bottom-right so the text gets full width.
-   Reserve a little bottom padding so the last line isn't hidden behind them. */
-.todo-row {
+/* Rows whose actions float over the bottom-right corner so the text gets the
+   full width (todos and saved queries). Reserve a little bottom padding so the
+   last line isn't hidden behind them. */
+.row-float {
   position: relative;
   padding-bottom: 8px;
 }
-.todo-actions {
+.row-actions {
   position: absolute;
   right: 6px;
   bottom: 3px;
@@ -238,9 +239,15 @@ button {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.todo-row:hover .todo-actions,
-.todo-actions:focus-within {
+.row-float:hover .row-actions,
+.row-actions:focus-within {
   opacity: 1;
+}
+/* Saved-query text wraps to its full content instead of truncating. */
+.query-text {
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 input.field,
