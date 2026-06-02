@@ -56,6 +56,7 @@
   {:else}
     <button class="btn icon" title="Add profile" onclick={addProfile}>＋</button>
   {/if}
+  <button class="btn icon" title="Hide panel" onclick={() => app.toggleRightPanel()}>›</button>
 </div>
 
 <div class="panel-body">
