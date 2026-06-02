@@ -44,16 +44,22 @@ body,
   user-select: none;
 }
 
-/* Draggable divider overlaying the gap between the left panel and the center. */
+/* Draggable dividers overlaying the gaps between a side panel and the center. */
 .resize-handle {
   position: absolute;
   top: 0;
   bottom: calc(var(--row-h) + 1px);
-  left: var(--left-w);
   width: 7px;
-  transform: translateX(-3px);
   z-index: 5;
   cursor: col-resize;
+}
+.resize-handle.left {
+  left: var(--left-w);
+  transform: translateX(-3px);
+}
+.resize-handle.right {
+  right: var(--right-w);
+  transform: translateX(3px);
 }
 .resize-handle:hover,
 .app.resizing .resize-handle {
@@ -61,40 +67,52 @@ body,
   opacity: 0.5;
 }
 
-/* Far-left hover zone shown while the panel is collapsed. This thin strip
-   catches the pointer near the edge and fades in the reveal tab; otherwise the
-   tab is invisible so it stays out of the way. */
+/* Far-edge hover zone shown while a panel is collapsed. This thin strip catches
+   the pointer near the edge and fades in the reveal tab; otherwise the tab is
+   invisible so it stays out of the way. */
 .reveal-zone {
   position: absolute;
   top: 0;
   bottom: calc(var(--row-h) + 1px);
-  left: 0;
   width: 14px;
   z-index: 6;
 }
+.reveal-zone.left {
+  left: 0;
+}
+.reveal-zone.right {
+  right: 0;
+}
 
 /* Reveal tab — hidden until the pointer enters the zone (or it's focused). */
-.reveal-left {
+.reveal-tab {
   position: absolute;
   top: 8px;
-  left: 0;
   width: 18px;
   height: 38px;
   padding: 0;
   border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 6px 6px 0;
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.reveal-zone:hover .reveal-left,
-.reveal-left:focus-visible {
+.reveal-tab.left {
+  left: 0;
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+}
+.reveal-tab.right {
+  right: 0;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+}
+.reveal-zone:hover .reveal-tab,
+.reveal-tab:focus-visible {
   opacity: 1;
 }
-.reveal-left:hover {
+.reveal-tab:hover {
   color: var(--text);
   border-color: var(--accent);
 }

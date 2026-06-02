@@ -1,5 +1,5 @@
 import type { AppData, Profile, Skill, Todo, SavedQuery, Project } from './types';
-import { DEFAULT_FONT_SIZE, clampFontSize, clampLeftWidth, defaultAppData, normalizeAppData, uid } from './defaults';
+import { DEFAULT_FONT_SIZE, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
 import { loadAppData, saveAppData, scanSkills } from './api';
 
 /**
@@ -232,6 +232,18 @@ class AppState {
   }
   toggleLeftPanel(): void {
     this.data.leftPanelCollapsed = !this.data.leftPanelCollapsed;
+    this.scheduleSave();
+  }
+
+  // --- right panel layout (width + collapsed, persisted) ---
+  setRightPanelWidth(px: number): void {
+    const next = clampRightWidth(px);
+    if (next === this.data.rightPanelWidth) return;
+    this.data.rightPanelWidth = next;
+    this.scheduleSave();
+  }
+  toggleRightPanel(): void {
+    this.data.rightPanelCollapsed = !this.data.rightPanelCollapsed;
     this.scheduleSave();
   }
 

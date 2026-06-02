@@ -27,29 +27,33 @@
     return () => window.removeEventListener('keydown', onHotkey, { capture: true });
   });
 
-  // --- left-panel resize: drag the divider sitting between the panel and center.
-  // The panel's left edge is the window's left edge, so the pointer's x position
-  // is the desired width (clamped in state). Pointer capture keeps events flowing
-  // to the handle even while the cursor is over a terminal pane.
-  let resizing = $state(false);
-  function startResize(e: PointerEvent) {
+  // --- side-panel resize: drag the divider sitting between a panel and the
+  // center. The left panel's left edge is the window's left edge, so the
+  // pointer's x is its width; the right panel's right edge is the window's right
+  // edge, so its width is (window width − pointer x). Both are clamped in state.
+  // Pointer capture keeps events flowing to the handle even while the cursor is
+  // over a terminal pane.
+  let resizing = $state<'left' | 'right' | null>(null);
+  function startResize(side: 'left' | 'right', e: PointerEvent) {
     e.preventDefault();
-    resizing = true;
+    resizing = side;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function onResize(e: PointerEvent) {
-    if (resizing) app.setLeftPanelWidth(e.clientX);
+    if (resizing === 'left') app.setLeftPanelWidth(e.clientX);
+    else if (resizing === 'right') app.setRightPanelWidth(window.innerWidth - e.clientX);
   }
   function endResize(e: PointerEvent) {
     if (!resizing) return;
-    resizing = false;
+    resizing = null;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   }
 
   let leftW = $derived(app.data.leftPanelCollapsed ? 0 : app.data.leftPanelWidth);
+  let rightW = $derived(app.data.rightPanelCollapsed ? 0 : app.data.rightPanelWidth);
 </script>
 
-<div class="app" class:resizing style="--left-w:{leftW}px">
+<div class="app" class:resizing={!!resizing} style="--left-w:{leftW}px; --right-w:{rightW}px">
   <div class="panel left">
     <LeftPanel />
   </div>
@@ -65,20 +69,39 @@
   {#if app.data.leftPanelCollapsed}
     <!-- Hover zone at the far left: the reveal tab fades in only when the
          pointer is near the edge, so it stays out of the way otherwise. -->
-    <div class="reveal-zone">
-      <button class="reveal-left" title="Show panel" onclick={() => app.toggleLeftPanel()}>›</button>
+    <div class="reveal-zone left">
+      <button class="reveal-tab left" title="Show panel" onclick={() => app.toggleLeftPanel()}>›</button>
     </div>
   {:else}
     <!-- Drag divider on the gap between the left panel and the center. -->
     <div
-      class="resize-handle"
+      class="resize-handle left"
       title="Drag to resize · double-click to hide"
       role="separator"
       aria-orientation="vertical"
-      onpointerdown={startResize}
+      onpointerdown={(e) => startResize('left', e)}
       onpointermove={onResize}
       onpointerup={endResize}
       ondblclick={() => app.toggleLeftPanel()}
+    ></div>
+  {/if}
+
+  {#if app.data.rightPanelCollapsed}
+    <!-- Hover zone at the far right: mirror of the left reveal tab. -->
+    <div class="reveal-zone right">
+      <button class="reveal-tab right" title="Show panel" onclick={() => app.toggleRightPanel()}>‹</button>
+    </div>
+  {:else}
+    <!-- Drag divider on the gap between the center and the right panel. -->
+    <div
+      class="resize-handle right"
+      title="Drag to resize · double-click to hide"
+      role="separator"
+      aria-orientation="vertical"
+      onpointerdown={(e) => startResize('right', e)}
+      onpointermove={onResize}
+      onpointerup={endResize}
+      ondblclick={() => app.toggleRightPanel()}
     ></div>
   {/if}
 

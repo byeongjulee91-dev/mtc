@@ -86,4 +86,8 @@ export interface AppData {
   leftPanelWidth: number;
   /** Whether the left panel is collapsed (hidden). */
   leftPanelCollapsed: boolean;
+  /** Width (px) of the right panel. Driven by the drag divider. */
+  rightPanelWidth: number;
+  /** Whether the right panel is collapsed (hidden). */
+  rightPanelCollapsed: boolean;
 }

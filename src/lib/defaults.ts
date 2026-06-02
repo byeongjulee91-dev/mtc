@@ -22,6 +22,17 @@ export function clampLeftWidth(px: number): number {
   return Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, Math.round(px)));
 }
 
+/** Right-panel width bounds and default (px), used by the drag divider. */
+export const DEFAULT_RIGHT_WIDTH = 320;
+export const MIN_RIGHT_WIDTH = 180;
+export const MAX_RIGHT_WIDTH = 640;
+
+/** Clamp an arbitrary value into the allowed right-panel width range. */
+export function clampRightWidth(px: number): number {
+  if (!Number.isFinite(px)) return DEFAULT_RIGHT_WIDTH;
+  return Math.min(MAX_RIGHT_WIDTH, Math.max(MIN_RIGHT_WIDTH, Math.round(px)));
+}
+
 export function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'id-' + Math.floor(Math.random() * 1e9).toString(36);
@@ -92,6 +103,8 @@ export function defaultAppData(): AppData {
     terminalFontSize: DEFAULT_FONT_SIZE,
     leftPanelWidth: DEFAULT_LEFT_WIDTH,
     leftPanelCollapsed: false,
+    rightPanelWidth: DEFAULT_RIGHT_WIDTH,
+    rightPanelCollapsed: false,
   };
 }
 
@@ -146,6 +159,10 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
     leftPanelWidth:
       typeof raw.leftPanelWidth === 'number' ? clampLeftWidth(raw.leftPanelWidth) : base.leftPanelWidth,
     leftPanelCollapsed: typeof raw.leftPanelCollapsed === 'boolean' ? raw.leftPanelCollapsed : base.leftPanelCollapsed,
+    rightPanelWidth:
+      typeof raw.rightPanelWidth === 'number' ? clampRightWidth(raw.rightPanelWidth) : base.rightPanelWidth,
+    rightPanelCollapsed:
+      typeof raw.rightPanelCollapsed === 'boolean' ? raw.rightPanelCollapsed : base.rightPanelCollapsed,
   };
 }
 
