@@ -6,7 +6,7 @@
   import type { Profile } from '../types';
   import type { Dir } from '../tiling';
   import { app } from '../state.svelte';
-  import { bus } from '../bus.svelte';
+  import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
   import { createSession, writeSession, resizeSession, closeSession } from '../api';
 
   interface Props {
@@ -22,9 +22,28 @@
   let sessionId: number | null = null;
   let resizeObs: ResizeObserver | null = null;
   let ready = $state(false);
+  let dragOver = $state(false);
 
   function sendToSession(text: string, enter = false) {
     if (sessionId !== null) void writeSession(sessionId, enter ? text + '\r' : text);
+  }
+
+  // Accept todos/queries dragged from the side panel. Dropping inserts the text
+  // into *this* session's input (no Enter) so it lands in the specific terminal
+  // under the cursor rather than the focused one — and the user can edit/submit.
+  function onDragOver(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes(INSERT_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    dragOver = true;
+  }
+  function onDrop(e: DragEvent) {
+    dragOver = false;
+    const text = e.dataTransfer?.getData(INSERT_DRAG_TYPE);
+    if (!text) return;
+    e.preventDefault();
+    term?.focus();
+    sendToSession(text);
   }
 
   // The active pane owns the shared sender used by the side panels.
@@ -167,4 +186,12 @@
   });
 </script>
 
-<div class="pane-term" bind:this={host}></div>
+<div
+  class="pane-term"
+  class:drag-over={dragOver}
+  bind:this={host}
+  role="presentation"
+  ondragover={onDragOver}
+  ondragleave={() => (dragOver = false)}
+  ondrop={onDrop}
+></div>

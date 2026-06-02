@@ -18,3 +18,10 @@ class Bus {
 }
 
 export const bus = new Bus();
+
+/**
+ * dataTransfer MIME type used when dragging a todo/query from a side panel onto
+ * a terminal pane. Scoping to a custom type means panes react only to our own
+ * drags — not to arbitrary text or file drops.
+ */
+export const INSERT_DRAG_TYPE = 'application/x-mtc-insert';

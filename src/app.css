@@ -200,6 +200,13 @@ button {
   color: var(--muted);
   text-decoration: line-through;
 }
+/* Draggable todo/query text — drop onto a terminal pane to insert it. */
+[draggable='true'] {
+  cursor: grab;
+}
+[draggable='true']:active {
+  cursor: grabbing;
+}
 .grow {
   flex: 1;
   min-width: 0;
@@ -374,9 +381,20 @@ textarea.field {
   border-bottom: 1px solid var(--border);
 }
 .pane-term {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+/* Highlight a pane while a todo/query is dragged over it (drop = insert text). */
+.pane-term.drag-over::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  border: 2px dashed var(--border-focus);
+  background: color-mix(in srgb, var(--border-focus) 12%, transparent);
 }
 .pane-term .xterm {
   height: 100%;

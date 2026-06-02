@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from '../state.svelte';
-  import { bus } from '../bus.svelte';
+  import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
 
   let tab = $state<'project' | 'query'>('project');
   let projectPath = $state('');
@@ -34,6 +34,15 @@
   }
   function sendQuery(text: string) {
     bus.send(text, true);
+  }
+  // Drag a todo/query onto a terminal pane to insert its text into that
+  // session's input (see TerminalPane's drop handler). The custom MIME type
+  // scopes the drop so panes ignore unrelated text/file drags.
+  function startDrag(e: DragEvent, text: string) {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData(INSERT_DRAG_TYPE, text);
+    e.dataTransfer.setData('text/plain', text);
+    e.dataTransfer.effectAllowed = 'copy';
   }
   let copiedId = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -119,7 +128,14 @@
         {#each app.activeProject.todos as t (t.id)}
           <div class="list-row top row-float">
             <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
-            <span class="grow wrap" class:done={t.done}>{t.text}</span>
+            <span
+              class="grow wrap"
+              class:done={t.done}
+              draggable="true"
+              role="presentation"
+              ondragstart={(e) => startDrag(e, t.text)}
+              title="Drag onto a terminal to insert">{t.text}</span
+            >
             <div class="row-actions">
               <button
                 class="btn icon"
@@ -149,7 +165,13 @@
     {:else}
       {#each app.data.queries as q (q.id)}
         <div class="list-row top row-float">
-          <div class="grow wrap">
+          <div
+            class="grow wrap"
+            draggable="true"
+            role="presentation"
+            ondragstart={(e) => startDrag(e, q.text)}
+            title="Drag onto a terminal to insert"
+          >
             <div>{q.name}</div>
             <div class="muted query-text">{q.text}</div>
           </div>
