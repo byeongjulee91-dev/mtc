@@ -89,6 +89,9 @@ function normalizeQueries(raw: unknown): SavedQuery[] {
         name: typeof q.name === 'string' ? q.name : '',
         text: typeof q.text === 'string' ? q.text : '',
         hotkey,
+        // Older state (no `submit`) defaults to true — the prior always-submit
+        // behavior — so existing queries keep working unchanged.
+        submit: typeof q.submit === 'boolean' ? q.submit : true,
       };
     });
 }

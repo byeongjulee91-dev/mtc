@@ -281,6 +281,19 @@ button {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
+/* Subtle chip marking an append-only query (no Enter on insert). Muted rather
+   than accent-colored so it reads as a quiet annotation next to the name. */
+.mode-badge {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--panel-2);
+}
 /* Compact dropdown (in the hover actions) to bind/clear a query's shortcut. */
 .hotkey-select {
   background: var(--panel-2);

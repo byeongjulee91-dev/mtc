@@ -93,8 +93,8 @@ class AppState {
   }
 
   // --- queries (global, shared across projects) ---
-  addQuery(name: string, text: string): void {
-    this.data.queries.push({ id: uid(), name, text, hotkey: null });
+  addQuery(name: string, text: string, submit = true): void {
+    this.data.queries.push({ id: uid(), name, text, hotkey: null, submit });
     this.scheduleSave();
   }
   editQuery(id: string, name: string, text: string): void {
@@ -123,6 +123,16 @@ class AppState {
       }
     }
     q.hotkey = hotkey;
+    this.scheduleSave();
+  }
+  /**
+   * Set a query's insert mode: `true` submits on insert (appends Enter),
+   * `false` only appends the text. See `SavedQuery.submit`.
+   */
+  setQuerySubmit(id: string, submit: boolean): void {
+    const q = this.data.queries.find((x) => x.id === id);
+    if (!q) return;
+    q.submit = submit;
     this.scheduleSave();
   }
   /** The query bound to a given `Alt+<digit>` shortcut, or null if unassigned. */

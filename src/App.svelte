@@ -21,7 +21,7 @@
       if (!q) return;
       e.preventDefault();
       e.stopPropagation();
-      bus.send(q.text, true);
+      bus.send(q.text, q.submit);
     }
     window.addEventListener('keydown', onHotkey, { capture: true });
     return () => window.removeEventListener('keydown', onHotkey, { capture: true });

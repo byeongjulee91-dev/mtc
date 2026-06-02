@@ -41,6 +41,14 @@ export interface SavedQuery {
    * `null` = no shortcut.
    */
   hotkey: number | null;
+  /**
+   * Insert mode. `true` (default) appends the text *and* presses Enter so the
+   * query is submitted immediately; `false` only appends the text and leaves it
+   * on the prompt for the user to edit before submitting. Applies to the ➤ /
+   * ⇶ buttons and the `Alt+<digit>` shortcut — dragging a query onto a pane is
+   * always append-only.
+   */
+  submit: boolean;
 }
 
 /** A discovered skill (a directory containing SKILL.md). */

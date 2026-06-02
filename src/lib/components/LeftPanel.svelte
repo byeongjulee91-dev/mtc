@@ -11,6 +11,9 @@
   let todoText = $state('');
   let queryName = $state('');
   let queryText = $state('');
+  // Insert mode for the query being created: true = submit (append Enter),
+  // false = append only. Mirrors SavedQuery.submit.
+  let querySubmit = $state(true);
 
   function addProject() {
     const p = app.addProject(projectPath, projectName);
@@ -30,16 +33,18 @@
     const n = queryName.trim();
     const t = queryText.trim();
     if (n && t) {
-      app.addQuery(n, t);
+      app.addQuery(n, t, querySubmit);
       queryName = '';
       queryText = '';
     }
   }
-  function sendQuery(text: string) {
-    bus.send(text, true);
+  // `enter` controls whether the insert is submitted (Enter appended) or just
+  // appended. Todos always submit; queries pass their per-query `submit` flag.
+  function sendQuery(text: string, enter = true) {
+    bus.send(text, enter);
   }
-  function sendQueryAll(text: string) {
-    bus.sendAll(text, true);
+  function sendQueryAll(text: string, enter = true) {
+    bus.sendAll(text, enter);
   }
   // Drag a todo/query onto a terminal pane to insert its text into that
   // session's input (see TerminalPane's drop handler). The text is shared via
@@ -220,7 +225,17 @@
     <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
       <input class="field" placeholder="Query name" bind:value={queryName} />
       <textarea class="field" rows="2" placeholder="Query text sent to the focused terminal" bind:value={queryText}></textarea>
-      <button class="btn" onclick={addQuery}>Save query</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select
+          class="hotkey-select"
+          title="What happens when this query is inserted"
+          bind:value={querySubmit}
+        >
+          <option value={true}>↵ Submit on insert</option>
+          <option value={false}>… Append only</option>
+        </select>
+        <button class="btn" style="flex:1" onclick={addQuery}>Save query</button>
+      </div>
     </div>
     {#if app.data.queries.length === 0}
       <div class="empty">No saved queries.</div>
@@ -254,11 +269,22 @@
                 {#if q.hotkey !== null}
                   <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">Alt+{q.hotkey}</span>
                 {/if}
+                {#if !q.submit}
+                  <span class="mode-badge" title="Inserting appends the text only — no Enter">append</span>
+                {/if}
                 <span>{q.name}</span>
               </div>
               <div class="muted query-text">{q.text}</div>
             </div>
             <div class="row-actions">
+              <select
+                class="hotkey-select"
+                title="Insert mode: submit (Enter) or append only"
+                onchange={(e) => app.setQuerySubmit(q.id, e.currentTarget.value === 'submit')}
+              >
+                <option value="submit" selected={q.submit}>↵ Submit</option>
+                <option value="append" selected={!q.submit}>… Append</option>
+              </select>
               <select
                 class="hotkey-select"
                 title="Assign an Alt+digit shortcut"
@@ -274,13 +300,13 @@
                 class="btn icon"
                 title="Send to focused terminal"
                 disabled={!bus.hasFocus}
-                onclick={() => sendQuery(q.text)}>➤</button
+                onclick={() => sendQuery(q.text, q.submit)}>➤</button
               >
               <button
                 class="btn icon"
                 title="Send to all sessions"
                 disabled={!bus.hasFocus}
-                onclick={() => sendQueryAll(q.text)}>⇶</button
+                onclick={() => sendQueryAll(q.text, q.submit)}>⇶</button
               >
               <button
                 class="btn icon"
