@@ -70,9 +70,16 @@ if (-not $SkipChecks) {
     if (Test-Cmd npm)   { Write-Ok "npm $(npm -v)" } else { Fail "npm not found (comes with Node)." }
     if (Test-Cmd cargo) { Write-Ok "cargo $((cargo -V))" } else { Fail "Rust/cargo not found. Install https://rustup.rs then 'rustup default stable-msvc'." }
 
-    # MSVC linker — Tauri's link step needs link.exe (VS C++ Build Tools).
-    if (Test-Cmd link)  { Write-Ok "MSVC linker (link.exe) on PATH" }
-    else { Write-Warn "link.exe not on PATH. If build fails with 'linker link.exe not found', install VS C++ Build Tools ('Desktop development with C++')." }
+    # MSVC build tools — Rust's MSVC toolchain links via link.exe. It's normally
+    # NOT on PATH (only inside a Developer prompt); cargo locates it through
+    # vswhere, so probe the same way instead of checking PATH (avoids a false warn).
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    $vcInstall = if (Test-Path $vswhere) {
+        & $vswhere -products * -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+    }
+    if ($vcInstall) { Write-Ok "MSVC C++ build tools ($(Split-Path -Leaf $vcInstall))" }
+    elseif (Test-Cmd link) { Write-Ok "MSVC linker (link.exe) on PATH" }
+    else { Write-Warn "MSVC C++ build tools not found. If build fails with 'linker link.exe not found', install VS C++ Build Tools ('Desktop development with C++')." }
 
     # WebView2 runtime — registry probe (per-machine x64 + per-user).
     $wv2Keys = @(
