@@ -49,7 +49,10 @@
   }
 
   function openProfile(profile: Profile) {
-    addPane(profile, 'v');
+    // The selected project's path overrides the profile's own working directory,
+    // so the new session opens there (passed to WSL as `--cd <path>`).
+    const project = app.activeProject;
+    addPane(project?.path ? { ...profile, cwd: project.path } : profile, 'v');
   }
 
   function splitFocused(dir: 'v' | 'h') {
@@ -84,6 +87,11 @@
     </button>
   {/each}
   <span style="flex:1"></span>
+  {#if app.activeProject?.path}
+    <span class="cwd-hint" title="New sessions open in {app.activeProject.path}">
+      📁 {app.activeProject.name || app.activeProject.path}
+    </span>
+  {/if}
   <button class="btn icon" title="Split vertical" onclick={() => splitFocused('v')}>◧</button>
   <button class="btn icon" title="Split horizontal" onclick={() => splitFocused('h')}>⬓</button>
   <button class="btn icon" title="Maximize / restore" onclick={toggleMax}>⛶</button>

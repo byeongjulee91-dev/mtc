@@ -36,9 +36,27 @@ export interface Skill {
   path: string;
 }
 
-/** Persisted application data (todos, queries, profiles, skill roots). */
-export interface AppData {
+/**
+ * A project is a working directory with its own todos. Selecting a project sets
+ * where new sessions open (`path` is passed to WSL as `--cd <path>`, so it is a
+ * Linux-style path like `/mnt/c/Users/me/project` or `~/work`) and scopes the
+ * Todo tab to that project. Queries stay global.
+ */
+export interface Project {
+  id: string;
+  /** Friendly name shown in the list. Falls back to `path` when empty. */
+  name: string;
+  path: string;
   todos: Todo[];
+}
+
+/** Persisted application data (projects, global queries, profiles, skills). */
+export interface AppData {
+  /** Projects: a working directory with its own todos. */
+  projects: Project[];
+  /** Id of the selected project. `null` = none selected. */
+  activeProjectId: string | null;
+  /** Saved queries, shared across all projects. */
   queries: SavedQuery[];
   profiles: Profile[];
   /** Directories scanned for skills (host paths or \\wsl.localhost\... UNC paths). */

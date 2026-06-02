@@ -1,11 +1,11 @@
-import type { AppData, Profile, Skill, Todo, SavedQuery } from './types';
+import type { AppData, Profile, Skill, Todo, SavedQuery, Project } from './types';
 import { DEFAULT_FONT_SIZE, clampFontSize, defaultAppData, normalizeAppData, uid } from './defaults';
 import { loadAppData, saveAppData, scanSkills } from './api';
 
 /**
- * Reactive application state (Svelte 5 runes). Holds persisted data (todos,
- * queries, profiles, skill roots) plus the live skill list. Mutations autosave
- * to the backend with a short debounce.
+ * Reactive application state (Svelte 5 runes). Holds persisted data (projects
+ * with per-project todos, global queries, profiles, skill roots) plus the live
+ * skill list. Mutations autosave to the backend with a short debounce.
  */
 class AppState {
   data = $state<AppData>(defaultAppData());
@@ -41,22 +41,53 @@ class AppState {
     }, 250);
   }
 
-  // --- todos ---
+  // --- projects (a working directory with its own todos) ---
+  /** The selected project, or null when none is selected. */
+  get activeProject(): Project | null {
+    const id = this.data.activeProjectId;
+    return id ? this.data.projects.find((p) => p.id === id) ?? null : null;
+  }
+  addProject(path: string, name: string): Project | null {
+    const trimmed = path.trim();
+    if (!trimmed) return null;
+    // De-dupe on the path so the same directory isn't added twice.
+    const existing = this.data.projects.find((p) => p.path === trimmed);
+    if (existing) return existing;
+    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [] };
+    this.data.projects.push(project);
+    this.scheduleSave();
+    return project;
+  }
+  removeProject(id: string): void {
+    this.data.projects = this.data.projects.filter((p) => p.id !== id);
+    if (this.data.activeProjectId === id) this.data.activeProjectId = null;
+    this.scheduleSave();
+  }
+  selectProject(id: string): void {
+    this.data.activeProjectId = id;
+    this.scheduleSave();
+  }
+
+  // --- todos (scoped to the active project) ---
   addTodo(text: string): void {
-    this.data.todos.push({ id: uid(), text, done: false });
+    const project = this.activeProject;
+    if (!project) return;
+    project.todos.push({ id: uid(), text, done: false });
     this.scheduleSave();
   }
   toggleTodo(id: string): void {
-    const t = this.data.todos.find((x) => x.id === id);
+    const t = this.activeProject?.todos.find((x) => x.id === id);
     if (t) t.done = !t.done;
     this.scheduleSave();
   }
   deleteTodo(id: string): void {
-    this.data.todos = this.data.todos.filter((x) => x.id !== id);
+    const project = this.activeProject;
+    if (!project) return;
+    project.todos = project.todos.filter((x) => x.id !== id);
     this.scheduleSave();
   }
 
-  // --- queries ---
+  // --- queries (global, shared across projects) ---
   addQuery(name: string, text: string): void {
     this.data.queries.push({ id: uid(), name, text });
     this.scheduleSave();

@@ -2,11 +2,20 @@
   import { app } from '../state.svelte';
   import { bus } from '../bus.svelte';
 
-  let tab = $state<'todo' | 'query'>('todo');
+  let tab = $state<'project' | 'query'>('project');
+  let projectPath = $state('');
+  let projectName = $state('');
   let todoText = $state('');
   let queryName = $state('');
   let queryText = $state('');
 
+  function addProject() {
+    const p = app.addProject(projectPath, projectName);
+    if (p) {
+      projectPath = '';
+      projectName = '';
+    }
+  }
   function addTodo() {
     const t = todoText.trim();
     if (t) {
@@ -29,31 +38,78 @@
 </script>
 
 <div class="panel-head">
-  <button class="tab" class:active={tab === 'todo'} onclick={() => (tab = 'todo')}>Todos</button>
-  <button class="tab" class:active={tab === 'query'} onclick={() => (tab = 'query')}>Queries</button>
+  <button class="tab" class:active={tab === 'project'} onclick={() => (tab = 'project')}>Project</button>
+  <button class="tab" class:active={tab === 'query'} onclick={() => (tab = 'query')}>Query</button>
 </div>
 
 <div class="panel-body">
-  {#if tab === 'todo'}
-    <div style="padding:8px;display:flex;gap:6px">
+  {#if tab === 'project'}
+    <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
       <input
         class="field"
-        placeholder="New todo…"
-        bind:value={todoText}
-        onkeydown={(e) => e.key === 'Enter' && addTodo()}
+        placeholder="Path, e.g. /mnt/c/Users/me/project"
+        bind:value={projectPath}
+        onkeydown={(e) => e.key === 'Enter' && addProject()}
       />
-      <button class="btn" onclick={addTodo}>+</button>
+      <input
+        class="field"
+        placeholder="Name (optional)"
+        bind:value={projectName}
+        onkeydown={(e) => e.key === 'Enter' && addProject()}
+      />
+      <button class="btn" onclick={addProject}>Add project</button>
     </div>
-    {#if app.data.todos.length === 0}
-      <div class="empty">No todos yet.</div>
+    <div class="empty" style="padding-top:0">
+      Select a project to scope its todos and open new sessions in its directory.
+    </div>
+    {#if app.data.projects.length === 0}
+      <div class="empty">No projects yet.</div>
     {:else}
-      {#each app.data.todos as t (t.id)}
-        <div class="list-row">
-          <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
-          <span class="grow" class:done={t.done}>{t.text}</span>
-          <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+      {#each app.data.projects as p (p.id)}
+        <div class="list-row" class:sel={app.data.activeProjectId === p.id}>
+          <button
+            class="path-pick grow"
+            title={app.data.activeProjectId === p.id ? 'Active project' : 'Select project'}
+            onclick={() => app.selectProject(p.id)}
+          >
+            <span class="path-mark">{app.data.activeProjectId === p.id ? '●' : '○'}</span>
+            <span class="grow">
+              <div>{p.name || p.path}</div>
+              {#if p.name}
+                <div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{p.path}</div>
+              {/if}
+            </span>
+          </button>
+          <button class="btn icon" title="Delete" onclick={() => app.removeProject(p.id)}>✕</button>
         </div>
       {/each}
+    {/if}
+
+    <!-- Todos for the selected project, shown below the project list. -->
+    {#if app.activeProject}
+      <div class="section-head">
+        Todo · {app.activeProject.name || app.activeProject.path}
+      </div>
+      <div style="padding:8px;display:flex;gap:6px">
+        <input
+          class="field"
+          placeholder="New todo…"
+          bind:value={todoText}
+          onkeydown={(e) => e.key === 'Enter' && addTodo()}
+        />
+        <button class="btn" onclick={addTodo}>+</button>
+      </div>
+      {#if app.activeProject.todos.length === 0}
+        <div class="empty">No todos yet.</div>
+      {:else}
+        {#each app.activeProject.todos as t (t.id)}
+          <div class="list-row">
+            <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
+            <span class="grow" class:done={t.done}>{t.text}</span>
+            <button class="btn icon" title="Delete" onclick={() => app.deleteTodo(t.id)}>✕</button>
+          </div>
+        {/each}
+      {/if}
     {/if}
   {:else}
     <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
