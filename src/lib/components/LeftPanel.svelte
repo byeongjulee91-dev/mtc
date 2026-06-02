@@ -252,7 +252,7 @@
             >
               <div class="q-title">
                 {#if q.hotkey !== null}
-                  <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">⌥{q.hotkey}</span>
+                  <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">Alt+{q.hotkey}</span>
                 {/if}
                 <span>{q.name}</span>
               </div>
@@ -265,9 +265,9 @@
                 onchange={(e) =>
                   app.setQueryHotkey(q.id, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
               >
-                <option value="" selected={q.hotkey === null}>⌥–</option>
+                <option value="" selected={q.hotkey === null}>Alt –</option>
                 {#each HOTKEY_DIGITS as d}
-                  <option value={d} selected={q.hotkey === d}>⌥{d}</option>
+                  <option value={d} selected={q.hotkey === d}>Alt+{d}</option>
                 {/each}
               </select>
               <button
