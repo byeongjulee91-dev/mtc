@@ -34,6 +34,13 @@ export interface SavedQuery {
   id: string;
   name: string;
   text: string;
+  /**
+   * Optional keyboard shortcut digit (1–9). When set, pressing `Alt+<digit>`
+   * sends this query's text to the focused terminal. A digit is unique across
+   * all queries — assigning it to one query clears it from any other.
+   * `null` = no shortcut.
+   */
+  hotkey: number | null;
 }
 
 /** A discovered skill (a directory containing SKILL.md). */

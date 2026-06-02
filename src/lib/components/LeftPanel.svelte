@@ -2,6 +2,9 @@
   import { app } from '../state.svelte';
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
 
+  // Digits available as Alt+<digit> query shortcuts (see App.svelte's handler).
+  const HOTKEY_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
   let tab = $state<'project' | 'query'>('project');
   let projectPath = $state('');
   let projectName = $state('');
@@ -247,10 +250,26 @@
               ondragend={() => (bus.dragText = null)}
               title="Drag onto a terminal to insert"
             >
-              <div>{q.name}</div>
+              <div class="q-title">
+                {#if q.hotkey !== null}
+                  <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">⌥{q.hotkey}</span>
+                {/if}
+                <span>{q.name}</span>
+              </div>
               <div class="muted query-text">{q.text}</div>
             </div>
             <div class="row-actions">
+              <select
+                class="hotkey-select"
+                title="Assign an Alt+digit shortcut"
+                onchange={(e) =>
+                  app.setQueryHotkey(q.id, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
+              >
+                <option value="" selected={q.hotkey === null}>⌥–</option>
+                {#each HOTKEY_DIGITS as d}
+                  <option value={d} selected={q.hotkey === d}>⌥{d}</option>
+                {/each}
+              </select>
               <button
                 class="btn icon"
                 title="Send to focused terminal"

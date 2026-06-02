@@ -94,7 +94,7 @@ class AppState {
 
   // --- queries (global, shared across projects) ---
   addQuery(name: string, text: string): void {
-    this.data.queries.push({ id: uid(), name, text });
+    this.data.queries.push({ id: uid(), name, text, hotkey: null });
     this.scheduleSave();
   }
   editQuery(id: string, name: string, text: string): void {
@@ -108,6 +108,26 @@ class AppState {
   deleteQuery(id: string): void {
     this.data.queries = this.data.queries.filter((x) => x.id !== id);
     this.scheduleSave();
+  }
+  /**
+   * Bind (or clear, with `null`) the `Alt+<digit>` shortcut for a query. Hotkeys
+   * are unique across all queries, so assigning a digit that another query holds
+   * first releases it there.
+   */
+  setQueryHotkey(id: string, hotkey: number | null): void {
+    const q = this.data.queries.find((x) => x.id === id);
+    if (!q) return;
+    if (hotkey !== null) {
+      for (const other of this.data.queries) {
+        if (other.id !== id && other.hotkey === hotkey) other.hotkey = null;
+      }
+    }
+    q.hotkey = hotkey;
+    this.scheduleSave();
+  }
+  /** The query bound to a given `Alt+<digit>` shortcut, or null if unassigned. */
+  queryForHotkey(digit: number): SavedQuery | null {
+    return this.data.queries.find((q) => q.hotkey === digit) ?? null;
   }
 
   // --- profiles ---

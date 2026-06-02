@@ -8,6 +8,23 @@
 
   onMount(() => {
     void app.init();
+    // Global query shortcuts: Alt+1..9 sends the bound query to the focused
+    // terminal. We listen on the window in the capture phase and use the
+    // physical key (`e.code` = "Digit1".."Digit9") so layout remapping doesn't
+    // matter; capturing here also stops xterm from forwarding the keystroke to
+    // the PTY before we can act on it.
+    function onHotkey(e: KeyboardEvent) {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const m = /^Digit([1-9])$/.exec(e.code);
+      if (!m) return;
+      const q = app.queryForHotkey(Number(m[1]));
+      if (!q) return;
+      e.preventDefault();
+      e.stopPropagation();
+      bus.send(q.text, true);
+    }
+    window.addEventListener('keydown', onHotkey, { capture: true });
+    return () => window.removeEventListener('keydown', onHotkey, { capture: true });
   });
 
   // --- left-panel resize: drag the divider sitting between the panel and center.

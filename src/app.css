@@ -257,6 +257,40 @@ button {
   overflow-wrap: anywhere;
 }
 
+/* Query title line: the name preceded by its shortcut badge (when assigned). */
+.q-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Always-visible chip showing the Alt+digit shortcut bound to a query. */
+.hotkey-badge {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Compact dropdown (in the hover actions) to bind/clear a query's shortcut. */
+.hotkey-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 2px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.hotkey-select:hover {
+  border-color: var(--accent);
+}
+
 input.field,
 textarea.field {
   width: 100%;

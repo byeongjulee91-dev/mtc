@@ -52,6 +52,36 @@ function normalizeProfile(p: Partial<Profile> & { id: string }): Profile {
   };
 }
 
+/** Coerce a hotkey blob into a valid digit (1–9) or `null`. */
+function normalizeHotkey(h: unknown): number | null {
+  if (typeof h !== 'number' || !Number.isFinite(h)) return null;
+  const n = Math.floor(h);
+  return n >= 1 && n <= 9 ? n : null;
+}
+
+/**
+ * Coerce a loaded query list into valid `SavedQuery` objects and enforce hotkey
+ * uniqueness: if two queries claim the same digit, the first keeps it and the
+ * rest are cleared. Older state (no `hotkey`) loads with `null`.
+ */
+function normalizeQueries(raw: unknown): SavedQuery[] {
+  if (!Array.isArray(raw)) return [];
+  const taken = new Set<number>();
+  return raw
+    .filter((q): q is Partial<SavedQuery> & { id: string } => !!q && typeof q.id === 'string')
+    .map((q) => {
+      let hotkey = normalizeHotkey(q.hotkey);
+      if (hotkey !== null && taken.has(hotkey)) hotkey = null;
+      if (hotkey !== null) taken.add(hotkey);
+      return {
+        id: q.id,
+        name: typeof q.name === 'string' ? q.name : '',
+        text: typeof q.text === 'string' ? q.text : '',
+        hotkey,
+      };
+    });
+}
+
 export function defaultAppData(): AppData {
   return {
     projects: [],
@@ -105,7 +135,7 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
     projects,
     activeProjectId,
     // Queries are global; accept either the current top-level list or a legacy one.
-    queries: Array.isArray(raw.queries) ? raw.queries : [],
+    queries: normalizeQueries(raw.queries),
     profiles:
       Array.isArray(raw.profiles) && raw.profiles.length
         ? raw.profiles.filter((p) => p && typeof p.id === 'string').map(normalizeProfile)
