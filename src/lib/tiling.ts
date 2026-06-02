@@ -66,6 +66,66 @@ export function paneOrder(root: TileNode): number[] {
   return [...paneOrder(root.first), ...paneOrder(root.second)];
 }
 
+/** A spatial direction for Alt+Arrow focus navigation between panes. */
+export type Dir = 'left' | 'right' | 'up' | 'down';
+
+/**
+ * Find the pane spatially adjacent to `fromId` in the given direction, using the
+ * computed tile boxes. Returns the neighbor's id, or null when there is none (the
+ * source is missing, or it is already at that edge). Powers Alt+Arrow focus moves.
+ *
+ * A candidate qualifies when it lies on the correct side of the source *and*
+ * shares some span on the perpendicular axis. The nearest candidate along the
+ * movement axis wins; a larger shared span breaks ties so the most "in-line" pane
+ * is chosen when several abut the same edge.
+ */
+export function findNeighbor(tiles: Map<number, Box>, fromId: number, dir: Dir): number | null {
+  const from = tiles.get(fromId);
+  if (!from) return null;
+
+  const fromRight = from.left + from.width;
+  const fromBottom = from.top + from.height;
+  const EPS = 1e-6;
+
+  let best: number | null = null;
+  let bestDist = Infinity;
+  let bestSpan = -Infinity;
+
+  for (const [id, b] of tiles) {
+    if (id === fromId) continue;
+    const bRight = b.left + b.width;
+    const bBottom = b.top + b.height;
+
+    let dist: number;
+    let span: number;
+    if (dir === 'right') {
+      if (b.left < fromRight - EPS) continue;
+      dist = b.left - fromRight;
+      span = Math.min(fromBottom, bBottom) - Math.max(from.top, b.top);
+    } else if (dir === 'left') {
+      if (bRight > from.left + EPS) continue;
+      dist = from.left - bRight;
+      span = Math.min(fromBottom, bBottom) - Math.max(from.top, b.top);
+    } else if (dir === 'down') {
+      if (b.top < fromBottom - EPS) continue;
+      dist = b.top - fromBottom;
+      span = Math.min(fromRight, bRight) - Math.max(from.left, b.left);
+    } else {
+      if (bBottom > from.top + EPS) continue;
+      dist = from.top - bBottom;
+      span = Math.min(fromRight, bRight) - Math.max(from.left, b.left);
+    }
+
+    if (span <= EPS) continue; // must overlap on the perpendicular axis
+    if (dist < bestDist - EPS || (dist <= bestDist + EPS && span > bestSpan)) {
+      best = id;
+      bestDist = dist;
+      bestSpan = span;
+    }
+  }
+  return best;
+}
+
 /** Adjust the split ratio of the parent of `paneId` by `delta` (clamped). */
 export function nudgeRatio(root: TileNode, paneId: number, delta: number): TileNode {
   if (root.type === 'leaf') return root;

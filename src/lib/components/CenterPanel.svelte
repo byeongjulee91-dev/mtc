@@ -5,8 +5,10 @@
     splitPane,
     removePane,
     paneOrder,
+    findNeighbor,
     type TileNode,
     type Box,
+    type Dir,
   } from '../tiling';
   import type { Profile } from '../types';
   import { app } from '../state.svelte';
@@ -35,6 +37,18 @@
   function focus(id: number) {
     focusedId = id;
   }
+
+  // Alt+Arrow: move focus to the spatially adjacent pane. While maximized the
+  // maximize follows, so you flip through panes full-screen. Registered on the
+  // shared bus; the focused terminal's key handler calls it.
+  function focusNeighbor(dir: Dir) {
+    if (focusedId === null) return;
+    const next = findNeighbor(allTiles, focusedId, dir);
+    if (next === null) return;
+    focusedId = next;
+    if (maximizedId !== null) maximizedId = next;
+  }
+  bus.focusDir = focusNeighbor;
 
   function addPane(profile: Profile, dir: 'v' | 'h') {
     const id = nextId++;
