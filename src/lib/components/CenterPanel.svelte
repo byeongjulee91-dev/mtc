@@ -47,12 +47,14 @@
     if (rt) app.setLayout(key, serializeTree(rt.tree, rt.panes));
   }
 
-  // Lazy warm / restore: ensure the active bucket has a runtime, building it
-  // from the persisted layout on first visit. This is also what restores a
-  // project's sessions after an app restart.
-  $effect(() => {
-    const key = bucketKey;
-    if (runtimes.has(key)) return;
+  // Build (and restore) a bucket's runtime on demand, returning the existing one
+  // if already warm. Single source of runtime creation — used by the warm effect
+  // below and by openProfile — so a bucket is never created empty when it has a
+  // saved layout. Restoring drops leaves whose profile was deleted; if pruning
+  // changed the tree, normalize storage once so the dead leaf doesn't linger.
+  function ensureRuntime(key: string): PaneRuntime {
+    const existing = runtimes.get(key);
+    if (existing) return existing;
     const rt = new PaneRuntime();
     const layout = app.layoutFor(key);
     if (layout) {
@@ -63,8 +65,22 @@
           (p) => prepareProfile(key, p),
         ),
       );
+      const pruned = serializeTree(rt.tree, rt.panes);
+      if (JSON.stringify(pruned) !== JSON.stringify(layout)) app.setLayout(key, pruned);
     }
     runtimes.set(key, rt);
+    return rt;
+  }
+
+  // Lazy warm / restore: once persisted data has loaded, ensure the active
+  // bucket has a runtime — built from its saved layout on first visit (the
+  // restore-on-launch path). Gating on `app.loaded` is essential: `app.init()`
+  // is async, so before it resolves `app.data` is the default (empty) blob;
+  // creating a runtime then would shadow the real persisted layout forever
+  // (especially the Unfiled bucket, since activeProjectId starts null).
+  $effect(() => {
+    if (!app.loaded) return;
+    ensureRuntime(bucketKey);
   });
 
   // Prune runtimes whose project was deleted — unmounting their panes closes
@@ -104,11 +120,7 @@
 
   function openProfile(profile: Profile): void {
     const key = bucketKey;
-    let rt = runtimes.get(key);
-    if (!rt) {
-      rt = new PaneRuntime();
-      runtimes.set(key, rt);
-    }
+    const rt = ensureRuntime(key);
     rt.addPane(prepareProfile(key, profile), 'v');
     persist(key);
   }

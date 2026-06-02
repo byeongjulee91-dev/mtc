@@ -12,25 +12,37 @@ on the focused terminal and on persisted state.
 
 | File | Description |
 |------|-------------|
-| `CenterPanel.svelte` | The workspace. Owns the local tiling tree (`TileNode`), pane→profile map, focus and maximize state. Renders the profile launch bar and absolutely-positions each pane from `computeTiles`. Opens new panes in the active project's cwd; splits, maximizes, and closes panes. |
-| `TerminalPane.svelte` | A single xterm.js terminal bound to a backend PTY session. Creates the session via `api.createSession`, streams output in, forwards keystrokes/resizes out, registers `bus.send` while focused, and handles Ctrl+wheel / Ctrl +/-/0 font zoom through shared state. Shows a placeholder in standalone mode. |
-| `LeftPanel.svelte` | Two tabs: **Project** (add/select projects, per-project todos) and **Query** (save reusable query text and send it to the focused terminal via `bus.send`). |
+| `CenterPanel.svelte` | The workspace. Holds **one `PaneRuntime` per visited bucket** (a project id, or `UNFILED_KEY` when none is selected) in a `SvelteMap`, and renders *every* bucket's panes in one keyed `{#each}` — inactive buckets are mounted but `display:none` so their PTY sessions stay warm across project switches. Renders the profile launch bar; opens panes in the active project's cwd; splits/maximizes/closes panes on the active runtime; lazily builds (restores) a bucket's runtime from its persisted `layout` once `app.loaded`; persists the live tree after every structural change; prunes runtimes for deleted projects; and parks a bucket (`bus.parkProject`) by dropping its runtime. |
+| `TerminalPane.svelte` | A single xterm.js terminal bound to a backend PTY session. Creates the session via `api.createSession`, streams output in, forwards keystrokes/resizes out, and handles Ctrl+wheel / Ctrl +/-/0 font zoom through shared state. Takes a `visible` prop (its bucket is the shown one): only visible panes own `bus.send` / join the `sendAll` broadcast pool, and a pane re-fits + resizes its PTY when it becomes visible again (xterm can't measure under `display:none`). Shows a placeholder in standalone mode. |
+| `LeftPanel.svelte` | Two tabs: **Project** (add/select projects, per-project todos; a live-session-count badge and a **park** button — shown on warm, non-active projects — via `bus.liveCounts` / `bus.parkProject`) and **Query** (save reusable query text and send it to the focused terminal via `bus.send`). |
 | `RightPanel.svelte` | Two tabs: **Skills** (manage skill-root paths, browse via the Tauri dialog plugin, list discovered skills, insert `/<name>` into the focused terminal) and **Profiles** (edit launch profiles — color/name/command/distro/cwd/keepOpen — and reset to defaults). |
 
 ## For AI Agents
 
 ### Working In This Directory
-- The tiling tree state lives **in `CenterPanel.svelte`**, not in the global
-  store — pane layout is ephemeral and per-window. Only `terminalFontSize` (in
-  `app` state) is shared/persisted across panes.
+- Terminal sessions are **per workspace bucket** (a project, or the Unfiled
+  bucket). The *live* runtime (tiling tree, pane→profile map, focus/maximize)
+  lives in `CenterPanel.svelte` as a `SvelteMap<bucketKey, PaneRuntime>` (see
+  `../session.svelte.ts`); the *persisted* layout (a tree of profile references)
+  lives in `Project.layout` / `AppData.unfiledLayout` and is what restores
+  sessions on launch. Switching projects must NEVER unmount another bucket's
+  panes (that kills its PTYs) — keep the single unified keyed `{#each}` that only
+  toggles each layer's `display`.
+- Runtime creation goes through `ensureRuntime()` only, and the warm/restore
+  `$effect` is gated on `app.loaded` — `app.init()` is async, so building a
+  runtime against the pre-load default `app.data` would shadow the real saved
+  layout. Preserve both.
 - Side panels never reference panes directly; they call `bus.send(text, enter?)`
-  and gate on `bus.hasFocus`. The focused `TerminalPane` owns `bus.send` and must
-  clear it on destroy if it still owns it (see the `onDestroy` guard).
+  and gate on `bus.hasFocus`. The active **and visible** `TerminalPane` owns
+  `bus.send`; ownership hand-off on project switch relies on the guarded relinquish
+  (only clear `bus.send` if you still own it), so keep that guard.
 - `TerminalPane` reacts to `app.data.terminalFontSize` via `$effect`: any pane (or
   Ctrl-zoom) that changes the size re-fits every pane and pushes new cols/rows to
   its PTY. Preserve the "skip if unchanged" guard to avoid resize loops.
-- Profiles passed to `addPane`/`openProfile` are cloned with the active project's
-  path as `cwd` so new sessions open in the selected project directory.
+- Profiles are cloned with the bucket's project path as `cwd` (`prepareProfile`)
+  so new sessions open in the selected project directory. The persisted layout
+  stores only the profile **id** — the cwd is re-applied at spawn time, so it
+  follows a project whose path later changes.
 - Browser/standalone mode: guard backend calls (the dialog import in
   `RightPanel`, session creation in `TerminalPane`) so the UI still renders.
 
