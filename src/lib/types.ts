@@ -43,4 +43,6 @@ export interface AppData {
   profiles: Profile[];
   /** Directories scanned for skills (host paths or \\wsl.localhost\... UNC paths). */
   skillRoots: string[];
+  /** Shared xterm font size (px) applied to every terminal pane. */
+  terminalFontSize: number;
 }

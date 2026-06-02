@@ -1,5 +1,16 @@
 import type { AppData, Profile } from './types';
 
+/** Terminal font-size bounds and default, shared by all panes. */
+export const DEFAULT_FONT_SIZE = 15;
+export const MIN_FONT_SIZE = 6;
+export const MAX_FONT_SIZE = 40;
+
+/** Clamp an arbitrary value into the allowed font-size range. */
+export function clampFontSize(px: number): number {
+  if (!Number.isFinite(px)) return DEFAULT_FONT_SIZE;
+  return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(px)));
+}
+
 export function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'id-' + Math.floor(Math.random() * 1e9).toString(36);
@@ -20,6 +31,7 @@ export function defaultAppData(): AppData {
     queries: [],
     profiles: defaultProfiles(),
     skillRoots: [],
+    terminalFontSize: DEFAULT_FONT_SIZE,
   };
 }
 
@@ -32,5 +44,7 @@ export function normalizeAppData(raw: Partial<AppData> | null | undefined): AppD
     queries: Array.isArray(raw.queries) ? raw.queries : [],
     profiles: Array.isArray(raw.profiles) && raw.profiles.length ? raw.profiles : base.profiles,
     skillRoots: Array.isArray(raw.skillRoots) ? raw.skillRoots : [],
+    terminalFontSize:
+      typeof raw.terminalFontSize === 'number' ? clampFontSize(raw.terminalFontSize) : base.terminalFontSize,
   };
 }

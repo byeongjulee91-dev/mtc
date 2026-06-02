@@ -1,5 +1,5 @@
 import type { AppData, Profile, Skill, Todo, SavedQuery } from './types';
-import { defaultAppData, normalizeAppData, uid } from './defaults';
+import { DEFAULT_FONT_SIZE, clampFontSize, defaultAppData, normalizeAppData, uid } from './defaults';
 import { loadAppData, saveAppData, scanSkills } from './api';
 
 /**
@@ -81,6 +81,20 @@ class AppState {
   deleteProfile(id: string): void {
     this.data.profiles = this.data.profiles.filter((x) => x.id !== id);
     this.scheduleSave();
+  }
+
+  // --- terminal font size (shared across all panes, persisted) ---
+  setTerminalFontSize(px: number): void {
+    const next = clampFontSize(px);
+    if (next === this.data.terminalFontSize) return;
+    this.data.terminalFontSize = next;
+    this.scheduleSave();
+  }
+  adjustTerminalFontSize(delta: number): void {
+    this.setTerminalFontSize(this.data.terminalFontSize + delta);
+  }
+  resetTerminalFontSize(): void {
+    this.setTerminalFontSize(DEFAULT_FONT_SIZE);
   }
 
   // --- skills ---

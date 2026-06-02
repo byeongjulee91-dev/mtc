@@ -37,7 +37,7 @@
   onMount(async () => {
     term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "Consolas", monospace',
-      fontSize: 13,
+      fontSize: app.data.terminalFontSize,
       cursorBlink: true,
       allowProposedApi: true,
       theme: {
@@ -48,7 +48,13 @@
     });
     fit = new FitAddon();
     term.loadAddon(fit);
+    // Intercept Ctrl +/-/0 before they reach the PTY so they zoom instead of
+    // being sent to the shell. Returning false stops xterm from handling them.
+    term.attachCustomKeyEventHandler(onKey);
     term.open(host);
+    // Must be non-passive so preventDefault() can stop the browser's own
+    // Ctrl+wheel page zoom.
+    host.addEventListener('wheel', onWheel, { passive: false });
     safeFit();
     ready = true;
 
@@ -91,7 +97,48 @@
     }
   }
 
+  // Font size is shared across panes via app state. When it changes (from this
+  // pane or another), apply it here, re-fit so the grid stays aligned, then push
+  // the new cols/rows down to the PTY.
+  $effect(() => {
+    const size = app.data.terminalFontSize;
+    if (!term || !ready) return;
+    if (term.options.fontSize === size) return;
+    term.options.fontSize = size;
+    safeFit();
+    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+  });
+
+  // Ctrl + wheel zooms the terminal font. Mutating shared state triggers the
+  // $effect above on every pane.
+  function onWheel(e: WheelEvent) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    app.adjustTerminalFontSize(e.deltaY < 0 ? 1 : -1);
+  }
+
+  // Ctrl + '=' / '+' to grow, Ctrl + '-' to shrink, Ctrl + '0' to reset.
+  function onKey(e: KeyboardEvent): boolean {
+    if (e.type !== 'keydown' || !e.ctrlKey) return true;
+    switch (e.key) {
+      case '=':
+      case '+':
+        app.adjustTerminalFontSize(1);
+        return false;
+      case '-':
+      case '_':
+        app.adjustTerminalFontSize(-1);
+        return false;
+      case '0':
+        app.resetTerminalFontSize();
+        return false;
+      default:
+        return true;
+    }
+  }
+
   onDestroy(() => {
+    host?.removeEventListener('wheel', onWheel);
     resizeObs?.disconnect();
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
