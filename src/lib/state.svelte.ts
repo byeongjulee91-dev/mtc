@@ -53,7 +53,7 @@ class AppState {
     // De-dupe on the path so the same directory isn't added twice.
     const existing = this.data.projects.find((p) => p.path === trimmed);
     if (existing) return existing;
-    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [] };
+    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [], profiles: [] };
     this.data.projects.push(project);
     this.scheduleSave();
     return project;
@@ -98,20 +98,82 @@ class AppState {
   }
 
   // --- profiles ---
-  addProfile(p: Omit<Profile, 'id'>): Profile {
+  /**
+   * Profiles available right now: the global ones plus, when a project is
+   * active, that project's own profiles (appended after the globals).
+   */
+  get visibleProfiles(): Profile[] {
+    const own = this.activeProject?.profiles ?? [];
+    return [...this.data.profiles, ...own];
+  }
+  /**
+   * Add a profile. `scope: 'project'` attaches it to the active project (falling
+   * back to global when no project is selected); otherwise it is global.
+   */
+  addProfile(p: Omit<Profile, 'id'>, scope: 'global' | 'project' = 'global'): Profile {
     const profile: Profile = { ...p, id: uid() };
-    this.data.profiles.push(profile);
+    const project = this.activeProject;
+    if (scope === 'project' && project) {
+      project.profiles.push(profile);
+    } else {
+      this.data.profiles.push(profile);
+    }
     this.scheduleSave();
     return profile;
   }
   updateProfile(id: string, patch: Partial<Profile>): void {
-    const p = this.data.profiles.find((x) => x.id === id);
-    if (p) Object.assign(p, patch);
+    const global = this.data.profiles.find((x) => x.id === id);
+    if (global) {
+      Object.assign(global, patch);
+    } else {
+      // Search project-scoped profiles (ids are unique across all lists).
+      for (const proj of this.data.projects) {
+        const p = proj.profiles.find((x) => x.id === id);
+        if (p) {
+          Object.assign(p, patch);
+          break;
+        }
+      }
+    }
     this.scheduleSave();
   }
   deleteProfile(id: string): void {
     this.data.profiles = this.data.profiles.filter((x) => x.id !== id);
+    for (const proj of this.data.projects) {
+      proj.profiles = proj.profiles.filter((x) => x.id !== id);
+    }
     this.scheduleSave();
+  }
+  /** Reorder via drag-and-drop: move `dragId` to sit next to `targetId`. Only
+   *  reorders within a single list (global or one project) — a drag whose source
+   *  and target live in different lists is a no-op. */
+  reorderProfile(dragId: string, targetId: string): void {
+    if (dragId === targetId) return;
+    const lists = [this.data.profiles, ...this.data.projects.map((p) => p.profiles)];
+    for (const list of lists) {
+      const from = list.findIndex((x) => x.id === dragId);
+      const origTo = list.findIndex((x) => x.id === targetId);
+      if (from === -1 || origTo === -1) continue;
+      const [moved] = list.splice(from, 1);
+      const to = list.findIndex((x) => x.id === targetId);
+      // Dragging downward lands after the target; upward lands before it.
+      list.splice(from < origTo ? to + 1 : to, 0, moved);
+      this.scheduleSave();
+      return;
+    }
+  }
+  /** Duplicate a profile (any list) into the active project, keeping its color,
+   *  shell, command, etc. Returns the copy, or null when no project is active. */
+  copyProfileToProject(id: string): Profile | null {
+    const project = this.activeProject;
+    if (!project) return null;
+    const all = [...this.data.profiles, ...this.data.projects.flatMap((p) => p.profiles)];
+    const src = all.find((x) => x.id === id);
+    if (!src) return null;
+    const copy: Profile = { ...src, id: uid() };
+    project.profiles.push(copy);
+    this.scheduleSave();
+    return copy;
   }
 
   // --- terminal font size (shared across all panes, persisted) ---

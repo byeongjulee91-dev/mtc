@@ -16,13 +16,29 @@ export function uid(): string {
   return 'id-' + Math.floor(Math.random() * 1e9).toString(36);
 }
 
-/** Seed profiles for a fresh install: claude, codex, and a plain WSL shell. */
+/** Seed profiles for a fresh install: claude, codex, a WSL shell, and PowerShell. */
 export function defaultProfiles(): Profile[] {
   return [
-    { id: 'claude', name: 'Claude', color: '#d97757', distro: '', cwd: '', command: 'claude', keepOpen: true },
-    { id: 'codex', name: 'Codex', color: '#10a37f', distro: '', cwd: '', command: 'codex', keepOpen: true },
-    { id: 'shell', name: 'WSL Shell', color: '#4a9eff', distro: '', cwd: '', command: '', keepOpen: false },
+    { id: 'claude', name: 'Claude', color: '#d97757', distro: '', cwd: '', command: 'claude', keepOpen: true, shell: 'wsl' },
+    { id: 'codex', name: 'Codex', color: '#10a37f', distro: '', cwd: '', command: 'codex', keepOpen: true, shell: 'wsl' },
+    { id: 'shell', name: 'WSL Shell', color: '#4a9eff', distro: '', cwd: '', command: '', keepOpen: false, shell: 'wsl' },
+    { id: 'powershell', name: 'PowerShell', color: '#5391fe', distro: '', cwd: '', command: '', keepOpen: false, shell: 'powershell' },
   ];
+}
+
+/** Coerce a loaded profile blob into a valid `Profile`, defaulting `shell`. */
+function normalizeProfile(p: Partial<Profile> & { id: string }): Profile {
+  const shell = p.shell === 'powershell' || p.shell === 'cmd' ? p.shell : 'wsl';
+  return {
+    id: p.id,
+    name: typeof p.name === 'string' ? p.name : '',
+    color: typeof p.color === 'string' ? p.color : '#4a9eff',
+    distro: typeof p.distro === 'string' ? p.distro : '',
+    cwd: typeof p.cwd === 'string' ? p.cwd : '',
+    command: typeof p.command === 'string' ? p.command : '',
+    keepOpen: !!p.keepOpen,
+    shell,
+  };
 }
 
 export function defaultAppData(): AppData {
@@ -58,6 +74,9 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
         name: typeof p.name === 'string' ? p.name : '',
         path: typeof p.path === 'string' ? p.path : '',
         todos: Array.isArray(p.todos) ? p.todos : [],
+        profiles: Array.isArray(p.profiles)
+          ? p.profiles.filter((pr) => pr && typeof pr.id === 'string').map(normalizeProfile)
+          : [],
       }))
     : migrateLegacyProjects(raw);
 
@@ -74,7 +93,10 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
     activeProjectId,
     // Queries are global; accept either the current top-level list or a legacy one.
     queries: Array.isArray(raw.queries) ? raw.queries : [],
-    profiles: Array.isArray(raw.profiles) && raw.profiles.length ? raw.profiles : base.profiles,
+    profiles:
+      Array.isArray(raw.profiles) && raw.profiles.length
+        ? raw.profiles.filter((p) => p && typeof p.id === 'string').map(normalizeProfile)
+        : base.profiles,
     skillRoots: Array.isArray(raw.skillRoots) ? raw.skillRoots : [],
     terminalFontSize:
       typeof raw.terminalFontSize === 'number' ? clampFontSize(raw.terminalFontSize) : base.terminalFontSize,
@@ -94,12 +116,13 @@ function migrateLegacyProjects(raw: LegacyAppData): Project[] {
         name: typeof f.label === 'string' ? f.label : '',
         path: f.path,
         todos: [],
+        profiles: [],
       }))
     : [];
   const legacyTodos = Array.isArray(raw.todos) ? raw.todos : [];
   if (legacyTodos.length) {
     if (projects.length === 0) {
-      projects.push({ id: uid(), name: 'General', path: '', todos: [] });
+      projects.push({ id: uid(), name: 'General', path: '', todos: [], profiles: [] });
     }
     projects[0].todos = legacyTodos;
   }

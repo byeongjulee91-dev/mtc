@@ -16,6 +16,11 @@ pub struct Profile {
     pub command: String,
     #[serde(default)]
     pub keep_open: bool,
+    /// Which terminal backend to launch on Windows: `"wsl"` (default / empty),
+    /// `"powershell"` (Windows PowerShell, `powershell.exe`), or `"cmd"`.
+    /// Ignored on Unix, where bash is always used for local dev/tests.
+    #[serde(default)]
+    pub shell: String,
 }
 
 /// A concrete process invocation derived from a profile.
@@ -47,43 +52,97 @@ fn inner_shell_args(profile: &Profile) -> Vec<String> {
     }
 }
 
+/// `cwd` as an `Option`, treating a blank string as "let the child decide".
+fn cwd_opt(cwd: &str) -> Option<String> {
+    if cwd.trim().is_empty() {
+        None
+    } else {
+        Some(cwd.to_string())
+    }
+}
+
+/// Enter WSL via `wsl.exe` (optionally `-d <distro>` and `--cd <cwd>`), then run
+/// the command in a bash login shell.
+fn build_wsl(profile: &Profile) -> Invocation {
+    let mut args: Vec<String> = Vec::new();
+    if !profile.distro.trim().is_empty() {
+        args.push("-d".to_string());
+        args.push(profile.distro.clone());
+    }
+    if !profile.cwd.trim().is_empty() {
+        args.push("--cd".to_string());
+        args.push(profile.cwd.clone());
+    }
+    args.push("--".to_string());
+    args.push("bash".to_string());
+    args.extend(inner_shell_args(profile));
+    Invocation {
+        program: "wsl.exe".to_string(),
+        args,
+        // The cwd is handled by `wsl --cd` above (it is a Linux-side path).
+        cwd: None,
+    }
+}
+
+/// Launch Windows PowerShell (`powershell.exe`) directly on the host. The
+/// optional `command` runs via `-Command`; `keep_open` adds `-NoExit` so the
+/// prompt stays after the command finishes. `cwd` is a host (Windows) path.
+fn build_powershell(profile: &Profile) -> Invocation {
+    let mut args = vec!["-NoLogo".to_string()];
+    if !profile.command.trim().is_empty() {
+        if profile.keep_open {
+            args.push("-NoExit".to_string());
+        }
+        args.push("-Command".to_string());
+        args.push(profile.command.clone());
+    }
+    Invocation {
+        program: "powershell.exe".to_string(),
+        args,
+        cwd: cwd_opt(&profile.cwd),
+    }
+}
+
+/// Launch the classic Windows command prompt (`cmd.exe`). With a command,
+/// `/k` keeps the window open afterwards and `/c` exits when it finishes.
+fn build_cmd(profile: &Profile) -> Invocation {
+    let args = if profile.command.trim().is_empty() {
+        Vec::new()
+    } else {
+        let flag = if profile.keep_open { "/k" } else { "/c" };
+        vec![flag.to_string(), profile.command.clone()]
+    };
+    Invocation {
+        program: "cmd.exe".to_string(),
+        args,
+        cwd: cwd_opt(&profile.cwd),
+    }
+}
+
+/// Run bash directly (Unix local dev / Linux sandbox), so the exact same PTY
+/// plumbing can be exercised without a Windows host.
+fn build_bash(profile: &Profile) -> Invocation {
+    Invocation {
+        program: "bash".to_string(),
+        args: inner_shell_args(profile),
+        cwd: cwd_opt(&profile.cwd),
+    }
+}
+
 /// Compute the process invocation for a profile.
 ///
-/// On Windows we enter WSL via `wsl.exe` (optionally `-d <distro>` and
-/// `--cd <cwd>`), then run the command in a bash login shell. On Unix (used for
-/// local development and for this Linux sandbox) we run bash directly so the
-/// exact same PTY plumbing can be exercised without a Windows host.
+/// On Windows the `shell` field selects the backend: `"powershell"` and `"cmd"`
+/// launch the native Windows shells, anything else (including the default empty
+/// value) enters WSL via `wsl.exe`. On Unix (local development / the Linux
+/// sandbox) bash is always used regardless of `shell`.
 pub fn build_invocation(profile: &Profile, windows: bool) -> Invocation {
-    let shell_args = inner_shell_args(profile);
-    if windows {
-        let mut args: Vec<String> = Vec::new();
-        if !profile.distro.trim().is_empty() {
-            args.push("-d".to_string());
-            args.push(profile.distro.clone());
-        }
-        if !profile.cwd.trim().is_empty() {
-            args.push("--cd".to_string());
-            args.push(profile.cwd.clone());
-        }
-        args.push("--".to_string());
-        args.push("bash".to_string());
-        args.extend(shell_args);
-        Invocation {
-            program: "wsl.exe".to_string(),
-            args,
-            cwd: None,
-        }
-    } else {
-        let cwd = if profile.cwd.trim().is_empty() {
-            None
-        } else {
-            Some(profile.cwd.clone())
-        };
-        Invocation {
-            program: "bash".to_string(),
-            args: shell_args,
-            cwd,
-        }
+    if !windows {
+        return build_bash(profile);
+    }
+    match profile.shell.trim() {
+        "powershell" => build_powershell(profile),
+        "cmd" => build_cmd(profile),
+        _ => build_wsl(profile),
     }
 }
 
@@ -100,6 +159,7 @@ mod tests {
             cwd: String::new(),
             command: command.into(),
             keep_open,
+            shell: String::new(),
         }
     }
 
@@ -148,5 +208,51 @@ mod tests {
         let inv = build_invocation(&profile("", false), false);
         assert_eq!(inv.program, "bash");
         assert_eq!(inv.args, vec!["-l"]);
+    }
+
+    #[test]
+    fn windows_powershell_shell_is_interactive() {
+        let mut p = profile("", false);
+        p.shell = "powershell".into();
+        let inv = build_invocation(&p, true);
+        assert_eq!(inv.program, "powershell.exe");
+        assert_eq!(inv.args, vec!["-NoLogo"]);
+        assert_eq!(inv.cwd, None);
+    }
+
+    #[test]
+    fn windows_powershell_runs_command_and_keeps_open() {
+        let mut p = profile("claude", true);
+        p.shell = "powershell".into();
+        p.cwd = "C:\\work".into();
+        let inv = build_invocation(&p, true);
+        assert_eq!(inv.program, "powershell.exe");
+        assert_eq!(inv.args, vec!["-NoLogo", "-NoExit", "-Command", "claude"]);
+        assert_eq!(inv.cwd, Some("C:\\work".to_string()));
+    }
+
+    #[test]
+    fn windows_cmd_uses_c_or_k() {
+        let mut p = profile("dir", false);
+        p.shell = "cmd".into();
+        let inv = build_invocation(&p, true);
+        assert_eq!(inv.program, "cmd.exe");
+        assert_eq!(inv.args, vec!["/c", "dir"]);
+
+        p.keep_open = true;
+        let inv = build_invocation(&p, true);
+        assert_eq!(inv.args, vec!["/k", "dir"]);
+
+        p.command = String::new();
+        let inv = build_invocation(&p, true);
+        assert!(inv.args.is_empty());
+    }
+
+    #[test]
+    fn windows_powershell_falls_back_to_bash_on_unix() {
+        let mut p = profile("", false);
+        p.shell = "powershell".into();
+        let inv = build_invocation(&p, false);
+        assert_eq!(inv.program, "bash");
     }
 }

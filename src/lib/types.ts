@@ -15,6 +15,13 @@ export interface Profile {
   command: string;
   /** Keep an interactive shell open after `command` exits. */
   keepOpen: boolean;
+  /**
+   * Terminal backend on Windows: `'wsl'` (default) enters WSL via `wsl.exe`;
+   * `'powershell'` launches Windows PowerShell; `'cmd'` launches the command
+   * prompt. Ignored on Unix (always bash). For native shells `cwd` is a Windows
+   * path and `distro` is unused.
+   */
+  shell: 'wsl' | 'powershell' | 'cmd';
 }
 
 export interface Todo {
@@ -48,6 +55,11 @@ export interface Project {
   name: string;
   path: string;
   todos: Todo[];
+  /**
+   * Profiles scoped to this project. They appear after the global
+   * (`AppData.profiles`) ones, but only while this project is active.
+   */
+  profiles: Profile[];
 }
 
 /** Persisted application data (projects, global queries, profiles, skills). */

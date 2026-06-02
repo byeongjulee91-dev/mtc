@@ -95,7 +95,7 @@
 </script>
 
 <div class="profile-bar">
-  {#each app.data.profiles as p (p.id)}
+  {#each app.visibleProfiles as p (p.id)}
     <button class="chip" onclick={() => openProfile(p)} title={p.command || 'WSL shell'}>
       <span class="dot" style="background:{p.color}"></span>{p.name}
     </button>

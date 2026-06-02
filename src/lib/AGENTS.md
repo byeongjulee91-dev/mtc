@@ -13,7 +13,7 @@ focused-pane bus. These modules are framework-light (plain TS, except the
 
 | File | Description |
 |------|-------------|
-| `state.svelte.ts` | The `app` singleton (`AppState`). Holds persisted `AppData` + live `skills`, exposes mutations for projects/todos/queries/profiles/skill-roots/font-size, autosaves with a 250ms debounce, and detects `standalone` mode when no Tauri backend is present. |
+| `state.svelte.ts` | The `app` singleton (`AppState`). Holds persisted `AppData` + live `skills`, exposes mutations for projects/todos/queries/profiles/skill-roots/font-size, autosaves with a 250ms debounce, and detects `standalone` mode when no Tauri backend is present. Profiles are two-tier: global (`data.profiles`) plus per-project (`project.profiles`); `visibleProfiles` concatenates global + active-project, and `addProfile(p, scope)` targets either tier. |
 | `api.ts` | Tauri IPC client. Wraps `invoke(...)` for every backend command and defines `PtyMessage`; `createSession` opens a `Channel`, base64-decodes streamed PTY bytes, and dispatches to callbacks. |
 | `bus.svelte.ts` | The `bus` singleton: a tiny shared sender so side panels can write to the focused terminal without prop-drilling. The active `TerminalPane` registers `bus.send`; `bus.hasFocus` tracks whether any pane is open. |
 | `tiling.ts` | Pure BSP tile-tree logic: `TileNode` (leaf/split), `splitPane`, `removePane`, `paneOrder`, `nudgeRatio`, `computeTiles`, `effectiveTiles`. No framework deps — fully unit-tested. |
