@@ -56,6 +56,30 @@ as `app-data.json` (atomic write).
 The project lives in WSL; from Windows access it via the `\\wsl$` share (e.g.
 `\\wsl.localhost\<distro>\home\<you>\project\mtc`) or clone it onto the Windows drive.
 
+### Quick start (recommended)
+
+`quickstart.ps1` (in the repo root) automates the [`WINDOWS_SETUP.md`](WINDOWS_SETUP.md)
+checklist — it verifies the host toolchain (Node, Rust, MSVC linker, WebView2) and
+the WSL side (`claude`/`codex` on the login-shell PATH), then installs deps and
+launches the dev window. Run it from a **Windows-native** path (e.g. `C:\dev\mtc`),
+not a `\\wsl$` share:
+
+```powershell
+.\quickstart.ps1               # preflight checks + npm install + tauri dev
+.\quickstart.ps1 -Build        # ... build a distributable instead
+.\quickstart.ps1 -SkipChecks -NoInstall   # skip preflight + install, just run
+```
+
+For the **Linux/WSL dev path** (no Windows host — exercises the PTY stack against
+`bash`, used for development & CI), use the bash counterpart:
+
+```bash
+./quickstart.sh                # checks + install + test/check/build
+./quickstart.sh --run          # ... then a headless (xvfb) boot sanity check
+```
+
+### Manual
+
 ```powershell
 npm install
 npm run tauri dev      # hot-reloading dev window
