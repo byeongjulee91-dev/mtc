@@ -30,12 +30,56 @@ body,
 }
 
 .app {
+  position: relative;
   display: grid;
   grid-template-columns: var(--left-w) 1fr var(--right-w);
   grid-template-rows: 1fr var(--row-h);
   height: 100vh;
   gap: 1px;
   background: var(--border);
+}
+/* While dragging the divider, suppress text selection and force the col cursor. */
+.app.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Draggable divider overlaying the gap between the left panel and the center. */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: calc(var(--row-h) + 1px);
+  left: var(--left-w);
+  width: 7px;
+  transform: translateX(-3px);
+  z-index: 5;
+  cursor: col-resize;
+}
+.resize-handle:hover,
+.app.resizing .resize-handle {
+  background: var(--border-focus);
+  opacity: 0.5;
+}
+
+/* Reveal tab shown at the far left when the panel is collapsed. */
+.reveal-left {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  z-index: 6;
+  width: 18px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.reveal-left:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .panel {

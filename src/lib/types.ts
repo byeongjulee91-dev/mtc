@@ -75,4 +75,8 @@ export interface AppData {
   skillRoots: string[];
   /** Shared xterm font size (px) applied to every terminal pane. */
   terminalFontSize: number;
+  /** Width (px) of the left panel. Driven by the drag divider. */
+  leftPanelWidth: number;
+  /** Whether the left panel is collapsed (hidden). */
+  leftPanelCollapsed: boolean;
 }

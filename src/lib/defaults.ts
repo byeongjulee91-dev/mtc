@@ -11,6 +11,17 @@ export function clampFontSize(px: number): number {
   return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(px)));
 }
 
+/** Left-panel width bounds and default (px), used by the drag divider. */
+export const DEFAULT_LEFT_WIDTH = 280;
+export const MIN_LEFT_WIDTH = 180;
+export const MAX_LEFT_WIDTH = 640;
+
+/** Clamp an arbitrary value into the allowed left-panel width range. */
+export function clampLeftWidth(px: number): number {
+  if (!Number.isFinite(px)) return DEFAULT_LEFT_WIDTH;
+  return Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, Math.round(px)));
+}
+
 export function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'id-' + Math.floor(Math.random() * 1e9).toString(36);
@@ -49,6 +60,8 @@ export function defaultAppData(): AppData {
     profiles: defaultProfiles(),
     skillRoots: [],
     terminalFontSize: DEFAULT_FONT_SIZE,
+    leftPanelWidth: DEFAULT_LEFT_WIDTH,
+    leftPanelCollapsed: false,
   };
 }
 
@@ -100,6 +113,9 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
     skillRoots: Array.isArray(raw.skillRoots) ? raw.skillRoots : [],
     terminalFontSize:
       typeof raw.terminalFontSize === 'number' ? clampFontSize(raw.terminalFontSize) : base.terminalFontSize,
+    leftPanelWidth:
+      typeof raw.leftPanelWidth === 'number' ? clampLeftWidth(raw.leftPanelWidth) : base.leftPanelWidth,
+    leftPanelCollapsed: typeof raw.leftPanelCollapsed === 'boolean' ? raw.leftPanelCollapsed : base.leftPanelCollapsed,
   };
 }
 

@@ -1,5 +1,5 @@
 import type { AppData, Profile, Skill, Todo, SavedQuery, Project } from './types';
-import { DEFAULT_FONT_SIZE, clampFontSize, defaultAppData, normalizeAppData, uid } from './defaults';
+import { DEFAULT_FONT_SIZE, clampFontSize, clampLeftWidth, defaultAppData, normalizeAppData, uid } from './defaults';
 import { loadAppData, saveAppData, scanSkills } from './api';
 
 /**
@@ -188,6 +188,18 @@ class AppState {
   }
   resetTerminalFontSize(): void {
     this.setTerminalFontSize(DEFAULT_FONT_SIZE);
+  }
+
+  // --- left panel layout (width + collapsed, persisted) ---
+  setLeftPanelWidth(px: number): void {
+    const next = clampLeftWidth(px);
+    if (next === this.data.leftPanelWidth) return;
+    this.data.leftPanelWidth = next;
+    this.scheduleSave();
+  }
+  toggleLeftPanel(): void {
+    this.data.leftPanelCollapsed = !this.data.leftPanelCollapsed;
+    this.scheduleSave();
   }
 
   // --- skills ---

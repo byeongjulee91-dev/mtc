@@ -52,6 +52,8 @@
 <div class="panel-head">
   <button class="tab" class:active={tab === 'project'} onclick={() => (tab = 'project')}>Project</button>
   <button class="tab" class:active={tab === 'query'} onclick={() => (tab = 'query')}>Query</button>
+  <span style="flex:1"></span>
+  <button class="btn icon" title="Hide panel" onclick={() => app.toggleLeftPanel()}>‹</button>
 </div>
 
 <div class="panel-body">
