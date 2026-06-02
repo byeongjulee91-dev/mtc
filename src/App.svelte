@@ -104,12 +104,4 @@
       ondblclick={() => app.toggleRightPanel()}
     ></div>
   {/if}
-
-  <div class="statusbar">
-    <span>mtc</span>
-    <span class="muted">{app.standalone ? 'browser preview (no terminals)' : 'WSL desktop'}</span>
-    <span style="flex:1"></span>
-    <span class="muted">{bus.hasFocus ? 'terminal focused' : 'no session'}</span>
-    <span class="muted">{app.skills.length} skills</span>
-  </div>
 </div>

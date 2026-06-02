@@ -14,7 +14,7 @@ terminals, skills/profiles) and talks to the Rust backend over Tauri IPC.
 | File | Description |
 |------|-------------|
 | `main.ts` | Entry point. Mounts `App.svelte` into `#app` using Svelte 5's `mount()` API and imports global CSS. |
-| `App.svelte` | Root layout: a CSS grid of `LeftPanel`, `CenterPanel`, `RightPanel`, and a status bar. Calls `app.init()` on mount and shows standalone/skill-count status. |
+| `App.svelte` | Root layout: a CSS grid of `LeftPanel`, `CenterPanel`, and `RightPanel`. Calls `app.init()` on mount and wires the global Alt+digit query shortcuts. |
 | `app.css` | Global styles and CSS custom properties (the dark theme tokens: `--bg`, `--panel`, `--border-focus`, panel widths, etc.). The `.app` grid template lives here. |
 
 ## Subdirectories
@@ -30,8 +30,6 @@ terminals, skills/profiles) and talks to the Rust backend over Tauri IPC.
   `new App({ target })` constructor. Keep it that way.
 - Layout structure (grid columns/rows) is split between `App.svelte` markup and
   the `.app` rule in `app.css`; change both together.
-- The status bar reads `app.standalone` and `app.skills.length` from the reactive
-  state singleton — no props are threaded down for these.
 
 ### Testing Requirements
 - `npm test` runs vitest (currently exercises `lib/tiling.ts`).
