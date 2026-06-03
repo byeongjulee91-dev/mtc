@@ -51,6 +51,33 @@ as `app-data.json` (atomic write).
 4. **WebView2 runtime** (preinstalled on Windows 11; otherwise install the Evergreen runtime).
 5. Tauri prerequisites: https://tauri.app/start/prerequisites/ (Visual Studio C++ Build Tools).
 
+## Recommended WSL config (memory)
+
+mtc keeps terminal sessions **warm** across project switches (so switching back is
+instant), which means several `claude` / `codex` processes can be alive at once inside
+WSL. By default WSL2 grows its VM (the `vmmemWSL` process) to the high-water mark and
+**never returns freed memory to Windows** — so that peak stays resident even after the
+processes exit. Two things keep it bounded:
+
+- **App side** — mtc caps how many projects stay warm (it parks the least-recently-used
+  one and closes its PTYs), so warm sessions can't accumulate without limit as you hop
+  between projects.
+- **WSL side (recommended)** — let WSL hand idle memory back to Windows. Create
+  `%UserProfile%\.wslconfig`:
+
+  ```ini
+  [experimental]
+  autoMemoryReclaim=dropcache
+  ```
+
+  `dropcache` drops the Linux page cache once WSL goes idle. `gradual` reclaims more
+  gently but has known hang/lock bugs when the distro runs **systemd** or **Docker**
+  ([microsoft/WSL#10675](https://github.com/microsoft/WSL/issues/10675),
+  [#11066](https://github.com/microsoft/WSL/issues/11066)) — prefer `dropcache` if that's
+  your setup. Note this only reclaims *freed/cached* memory, not the RSS of live
+  sessions. Apply with `wsl --shutdown` (this closes **all** running WSL processes) or a
+  reboot.
+
 ## Develop & run (on Windows)
 
 The project lives in WSL; from Windows access it via the `\\wsl$` share (e.g.
