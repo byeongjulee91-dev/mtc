@@ -198,22 +198,15 @@
 </script>
 
 <div class="profile-bar">
-  <div class="seg" role="group" aria-label="새 터미널 분할 방향" title="새 터미널을 열 방향">
-    <button
-      class="seg-btn"
-      class:on={splitDir === 'v'}
-      aria-pressed={splitDir === 'v'}
-      title="새 터미널을 좌우로 엽니다 (기본)"
-      onclick={() => (splitDir = 'v')}
-    >◧ 좌우</button>
-    <button
-      class="seg-btn"
-      class:on={splitDir === 'h'}
-      aria-pressed={splitDir === 'h'}
-      title="새 터미널을 위아래로 엽니다"
-      onclick={() => (splitDir = 'h')}
-    >⬓ 위아래</button>
-  </div>
+  <button
+    class="btn icon"
+    aria-label="새 터미널 분할 방향"
+    aria-pressed={splitDir === 'h'}
+    title={splitDir === 'v'
+      ? '새 터미널: 좌우로 엶 · 클릭하면 위아래로'
+      : '새 터미널: 위아래로 엶 · 클릭하면 좌우로'}
+    onclick={() => (splitDir = splitDir === 'v' ? 'h' : 'v')}
+  >{splitDir === 'v' ? '◧' : '⬓'}</button>
   {#each app.visibleProfiles as p (p.id)}
     <button class="chip" onclick={() => openProfile(p)} title={p.command || 'WSL shell'}>
       <span class="dot" style="background:{p.color}"></span>{p.name}

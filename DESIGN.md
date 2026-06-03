@@ -216,20 +216,16 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   variant used for the per-row action glyphs (✕ ✎ ➤ ⧉ …).
 - **`.tab`** / **`.tab.active`** — text-only panel tab; active state fills `var(--panel-2)`
   and switches text from `var(--muted)` to `var(--text)`.
-- **`.seg`** / **`.seg-btn`** — a segmented toggle (the profile bar's new-terminal
-  split-direction control). The selected segment (`.on`) follows the `.tab.active` idiom —
-  `var(--panel-2)` fill + `var(--text)`, inactive segments `var(--muted)` — and never takes
-  an accent, since it marks a *selected control*, not a live surface.
 - **`.field`** (input/textarea) — full-width form input: `var(--bg)` fill, 1px border,
   radius 5px, inherits font.
 - **`.hotkey-select`** — a compact 11px dropdown used inside hover action clusters to bind a
   query's Alt+digit shortcut or submit/append mode.
 
 ### Center / Terminals
-- **`.profile-bar`** — the center toolbar: a `.seg` split-direction toggle (◧ 좌우 / ⬓ 위아래)
-  at the left that sets which direction a launcher chip opens its new pane in, then the
-  launcher chips for each visible profile, the cwd hint, and the split/equalize/maximize/close
-  pane controls on the right.
+- **`.profile-bar`** — the center toolbar: an icon split-direction toggle (a `.btn.icon`
+  showing ◧ side-by-side / ⬓ stacked, flipping on click) at the left that sets which direction
+  a launcher chip opens its new pane in, then the launcher chips for each visible profile, the
+  cwd hint, and the split/equalize/maximize/close pane controls on the right.
 - **`.chip`** + **`.dot`** — a profile launcher: rounded 999px pill with a colored status
   dot (the profile's `color`) and name. Hover borders `var(--accent)`. Clicking opens a new
   pane with that profile.
