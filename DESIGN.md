@@ -216,6 +216,10 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   variant used for the per-row action glyphs (✕ ✎ ➤ ⧉ …).
 - **`.tab`** / **`.tab.active`** — text-only panel tab; active state fills `var(--panel-2)`
   and switches text from `var(--muted)` to `var(--text)`.
+- **`.seg`** / **`.seg-btn`** — a segmented toggle (the profile bar's new-terminal
+  split-direction control). The selected segment (`.on`) follows the `.tab.active` idiom —
+  `var(--panel-2)` fill + `var(--text)`, inactive segments `var(--muted)` — and never takes
+  an accent, since it marks a *selected control*, not a live surface.
 - **`.field`** (input/textarea) — full-width form input: `var(--bg)` fill, 1px border,
   radius 5px, inherits font.
 - **`.hotkey-select`** — a compact 11px dropdown used inside hover action clusters to bind a
@@ -223,7 +227,8 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
 
 ### Center / Terminals
 - **`.profile-bar`** — the center toolbar: launcher chips for each visible profile, the cwd
-  hint, and the split/equalize/maximize/close pane controls.
+  hint, a `.seg` split-direction toggle (◧ 좌우 / ⬓ 위아래) that sets which direction chip
+  launches split the focused pane, and the equalize/maximize/close pane controls.
 - **`.chip`** + **`.dot`** — a profile launcher: rounded 999px pill with a colored status
   dot (the profile's `color`) and name. Hover borders `var(--accent)`. Clicking opens a new
   pane with that profile.
@@ -302,8 +307,10 @@ is the user reshaping their workspace, all persisted to `app.data`:
   alive over a terminal.
 - **Panel collapse / reveal** — double-click a divider (or the hide button) to collapse a
   panel to width 0; an edge `.reveal-zone` then fades in a `.reveal-tab` to bring it back.
-- **Pane tiling** — split the focused pane vertically/horizontally (Alt+Shift+= / Alt+Shift+-),
-  move focus with Alt+Arrow, maximize/restore with Alt+Enter, equalize, and close with
+- **Pane tiling** — launcher chips open a new pane split off the focused one in the direction
+  set by the profile bar's split-direction toggle (◧ side-by-side, the default / ⬓ stacked);
+  the Alt+Shift+= / Alt+Shift+- shortcuts clone the focused pane in an explicit direction.
+  Move focus with Alt+Arrow, maximize/restore with Alt+Enter, equalize, and close with
   Ctrl+W. Panes are positioned by % from a BSP tree so they reflow as the window resizes.
 - **Terminal font zoom** — Ctrl+wheel or Ctrl +/-/0 adjusts the shared terminal font size,
   clamped 6–40 (default 15). Every pane re-fits and the new cols/rows are pushed to each PTY.

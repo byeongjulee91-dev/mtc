@@ -27,6 +27,12 @@
   // The active bucket: the selected project's id, or the Unfiled sentinel.
   let bucketKey = $derived(app.data.activeProjectId ?? UNFILED_KEY);
 
+  // Direction a launcher chip opens its new pane in: 'v' side-by-side (default)
+  // or 'h' stacked. The profile bar's segmented toggle flips it. The keyboard
+  // split shortcuts (Alt+Shift+±) clone the focused pane in an explicit
+  // direction and intentionally leave this untouched.
+  let splitDir = $state<'v' | 'h'>('v');
+
   function activeRuntime(): PaneRuntime | undefined {
     return runtimes.get(bucketKey);
   }
@@ -162,7 +168,7 @@
   function openProfile(profile: Profile): void {
     const key = bucketKey;
     const rt = ensureRuntime(key);
-    rt.addPane(prepareProfile(key, profile), 'v');
+    rt.addPane(prepareProfile(key, profile), splitDir);
     persist(key);
   }
   function splitActive(dir: 'v' | 'h'): void {
@@ -203,8 +209,22 @@
       📁 {app.activeProject.name || app.activeProject.path}
     </span>
   {/if}
-  <button class="btn icon" title="Split vertical (Alt+Shift++)" onclick={() => splitActive('v')}>◧</button>
-  <button class="btn icon" title="Split horizontal (Alt+Shift+-)" onclick={() => splitActive('h')}>⬓</button>
+  <div class="seg" role="group" aria-label="새 터미널 분할 방향">
+    <button
+      class="seg-btn"
+      class:on={splitDir === 'v'}
+      aria-pressed={splitDir === 'v'}
+      title="새 터미널을 좌우로 엽니다 (기본)"
+      onclick={() => (splitDir = 'v')}
+    >◧ 좌우</button>
+    <button
+      class="seg-btn"
+      class:on={splitDir === 'h'}
+      aria-pressed={splitDir === 'h'}
+      title="새 터미널을 위아래로 엽니다"
+      onclick={() => (splitDir = 'h')}
+    >⬓ 위아래</button>
+  </div>
   <button class="btn icon" title="Distribute panes evenly" onclick={equalizeActive}>⊞</button>
   <button class="btn icon" title="Maximize / restore (Alt+Enter)" onclick={toggleMaxActive}>⛶</button>
   <button class="btn icon" title="Close focused (Ctrl+W)" onclick={closeActiveFocused}>✕</button>

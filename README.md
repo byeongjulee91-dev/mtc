@@ -5,7 +5,7 @@ inside **WSL**, side-by-side, with split & maximize — plus a todo/query panel 
 skill panel.
 
 ```
-┌─ Todos / Queries ─┬─ [Claude] [Codex] [WSL Shell]   ◧ ⬓ ⛶ ✕ ─┬─ Skills ───┐
+┌─ Todos / Queries ─┬─ [Claude] [Codex] [WSL Shell]   ◧|⬓ ⛶ ✕ ─┬─ Skills ───┐
 │  [ ] write tests  │ ┌ Claude · claude ─┐┌ Codex · codex ──────┐│ • plan     │
 │  [x] ship v0.1    │ │ (WSL pty)        ││ (WSL pty)           ││ • review   │
 │                   │ │                  ││                     ││ • ship     │

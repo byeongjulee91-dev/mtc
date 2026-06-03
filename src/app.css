@@ -212,6 +212,35 @@ button {
   line-height: 1;
 }
 
+/* Segmented toggle (e.g. the profile bar's new-terminal split-direction
+   control). The selected segment (.on) follows the .tab.active idiom —
+   var(--panel-2) fill + var(--text) — never an accent: cyan/blue stay reserved
+   for live state / hover affordance, and this marks a selected control. */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.seg-btn {
+  background: var(--panel);
+  color: var(--muted);
+  border: 0;
+  padding: 2px 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--border);
+}
+.seg-btn:hover {
+  color: var(--text);
+}
+.seg-btn.on {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
 .list-row {
   display: flex;
   align-items: center;
