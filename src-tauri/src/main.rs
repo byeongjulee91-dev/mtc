@@ -76,6 +76,7 @@ fn close_session(manager: tauri::State<PtyManager>, id: u32) -> Result<(), Strin
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(PtyManager::default())
         .invoke_handler(tauri::generate_handler![
             load_app_data,

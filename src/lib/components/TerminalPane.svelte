@@ -7,7 +7,14 @@
   import type { Dir } from '../tiling';
   import { app } from '../state.svelte';
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
-  import { createSession, writeSession, resizeSession, closeSession } from '../api';
+  import {
+    createSession,
+    writeSession,
+    resizeSession,
+    closeSession,
+    clipboardReadText,
+    clipboardWriteText,
+  } from '../api';
 
   interface Props {
     profile: Profile;
@@ -31,6 +38,49 @@
 
   function sendToSession(text: string, enter = false) {
     if (sessionId !== null) void writeSession(sessionId, enter ? text + '\r' : text);
+  }
+
+  // --- copy / paste ---
+  // xterm keeps its own selection layer (a hidden helper textarea + positioned
+  // rows), so the WebView2 native "Copy" never sees it; we read the selection
+  // ourselves. Returns whether there was anything to copy so right-click can fall
+  // back to paste on an empty selection.
+  async function copySelection(): Promise<boolean> {
+    const sel = term?.getSelection() ?? '';
+    if (!sel) return false;
+    try {
+      await clipboardWriteText(sel);
+    } catch {
+      /* clipboard unavailable — nothing useful to do */
+    }
+    return true;
+  }
+
+  // `term.paste()` (not a raw write) so bracketed-paste mode is honoured and the
+  // text routes through the same onData → writeSession path as typing. In
+  // standalone there is no PTY/onData, so echo locally to keep the preview usable.
+  async function pasteClipboard() {
+    let text = '';
+    try {
+      text = await clipboardReadText();
+    } catch {
+      return; // read blocked/empty — leave the terminal untouched
+    }
+    if (!text) return;
+    if (sessionId !== null) term?.paste(text);
+    else term?.write(text);
+  }
+
+  // Right-click mirrors Windows Terminal / PuTTY: copy when there's a selection
+  // (and clear it as an "it copied" cue), otherwise paste. Suppress the native
+  // context menu, which can't act on xterm's canvas selection anyway.
+  function onContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    void (async () => {
+      if (await copySelection()) term?.clearSelection();
+      else await pasteClipboard();
+      term?.focus();
+    })();
   }
 
   // Accept todos/queries dragged from the side panel. Dropping inserts the text
@@ -97,6 +147,10 @@
         background: '#000000',
         foreground: '#d7dce5',
         cursor: '#00d7ff',
+        // Without an explicit colour the selection is near-invisible, which makes
+        // "select then copy" hard to use. Blue mirrors VS Code's editor selection.
+        selectionBackground: '#264f78',
+        selectionInactiveBackground: '#264f7866',
       },
     });
     fit = new FitAddon();
@@ -212,6 +266,30 @@
       bus.closeFocused();
       return false;
     }
+    // Copy/paste. Plain Ctrl+C must stay SIGINT and plain Ctrl+V keeps xterm's own
+    // textarea paste, so we only claim the Shift variants and the Insert combos.
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'C' || e.key === 'c')) {
+      e.preventDefault();
+      void copySelection();
+      return false;
+    }
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'V' || e.key === 'v')) {
+      e.preventDefault();
+      void pasteClipboard();
+      return false;
+    }
+    if (e.key === 'Insert' && !e.altKey && !e.metaKey) {
+      if (e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        void copySelection();
+        return false;
+      }
+      if (e.shiftKey && !e.ctrlKey) {
+        e.preventDefault();
+        void pasteClipboard();
+        return false;
+      }
+    }
     if (!e.ctrlKey) return true;
     switch (e.key) {
       case '=':
@@ -250,4 +328,5 @@
   ondragover={onDragOver}
   ondragleave={() => (dragOver = false)}
   ondrop={onDrop}
+  oncontextmenu={onContextMenu}
 ></div>

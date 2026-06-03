@@ -1,4 +1,4 @@
-import { invoke, Channel } from '@tauri-apps/api/core';
+import { invoke, Channel, isTauri } from '@tauri-apps/api/core';
 import type { AppData, Profile, Skill } from './types';
 
 /** Messages streamed from a backend PTY over a Tauri channel. */
@@ -64,4 +64,28 @@ export async function resizeSession(id: number, cols: number, rows: number): Pro
 
 export async function closeSession(id: number): Promise<void> {
   await invoke('close_session', { id });
+}
+
+// --- clipboard ---
+// WebView2 gates `navigator.clipboard.readText()` far more strictly than writes,
+// so in Tauri we go through the clipboard-manager plugin (loaded lazily so the
+// standalone `vite` build doesn't pull it in). In standalone/browser mode there
+// is no plugin, so we fall back to the web Clipboard API. Errors propagate to the
+// caller, which decides whether a failed copy/paste is worth surfacing.
+
+export async function clipboardWriteText(text: string): Promise<void> {
+  if (isTauri()) {
+    const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+    await writeText(text);
+  } else {
+    await navigator.clipboard.writeText(text);
+  }
+}
+
+export async function clipboardReadText(): Promise<string> {
+  if (isTauri()) {
+    const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
+    return (await readText()) ?? '';
+  }
+  return navigator.clipboard.readText();
 }
