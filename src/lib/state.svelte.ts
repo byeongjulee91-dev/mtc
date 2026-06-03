@@ -292,18 +292,29 @@ class AppState {
     this.scheduleSave();
     void this.refreshSkills();
   }
+  // Guard for skill discovery: discovery spawns `wsl.exe`, so we skip a re-scan
+  // when the inputs are unchanged (a re-select of the same project) and ignore a
+  // slow scan whose result a newer scan has already superseded.
+  private skillScanSeq = 0;
+  private lastSkillScanKey: string | null = null;
   async refreshSkills(): Promise<void> {
     if (this.standalone) return;
     // One discovery pass: the user's manual roots plus auto-detected host + WSL
     // user skills and the active project's `.claude/skills`, grouped by root.
+    const roots = $state.snapshot(this.data.skillRoots);
+    const projectPath = this.activeProject?.path ?? null;
+    const key = JSON.stringify([roots, projectPath]);
+    if (key === this.lastSkillScanKey) return; // same inputs → skip the WSL spawn
+    this.lastSkillScanKey = key;
+    const seq = ++this.skillScanSeq;
     try {
-      const { groups } = await discoverSkills(
-        $state.snapshot(this.data.skillRoots),
-        this.activeProject?.path ?? null,
-      );
+      const { groups } = await discoverSkills(roots, projectPath);
+      if (seq !== this.skillScanSeq) return; // a newer scan already won
       this.skillGroups = groups;
     } catch {
+      if (seq !== this.skillScanSeq) return;
       this.skillGroups = [];
+      this.lastSkillScanKey = null; // let the next attempt retry after a failure
     }
   }
 }

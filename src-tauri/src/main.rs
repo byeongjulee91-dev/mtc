@@ -36,18 +36,21 @@ fn save_app_data(app: tauri::AppHandle, data: Value) -> Result<(), String> {
 /// Returns the merged skill list and the roots consulted. `project_path` is the
 /// active project's path, or `None`.
 #[tauri::command]
-fn discover_skills(
+async fn discover_skills(
     app: tauri::AppHandle,
     manual_roots: Vec<String>,
     project_path: Option<String>,
-) -> Discovery {
+) -> Result<Discovery, String> {
     let home = app.path().home_dir().ok();
-    storage::discover_skills(
-        home.as_deref(),
-        &manual_roots,
-        project_path.as_deref(),
-        cfg!(windows),
-    )
+    let windows = cfg!(windows);
+    // The WSL branch spawns `wsl.exe` and blocks on its output; run the whole
+    // scan on the blocking pool so a project switch never freezes the UI
+    // (synchronous Tauri commands run on the main thread).
+    tauri::async_runtime::spawn_blocking(move || {
+        storage::discover_skills(home.as_deref(), &manual_roots, project_path.as_deref(), windows)
+    })
+    .await
+    .map_err(|e| format!("skill discovery failed: {e}"))
 }
 
 #[tauri::command]

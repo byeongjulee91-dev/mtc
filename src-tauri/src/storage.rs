@@ -390,6 +390,14 @@ fn scan_wsl_skills(distro: Option<&str>, roots: &[String]) -> Vec<(String, Vec<S
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    // Windows: launch wsl.exe without allocating a console. Discovery runs on
+    // every project switch, and without this Windows 11 flashes a Windows
+    // Terminal window each time. CREATE_NO_WINDOW = 0x08000000.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(_) => return Vec::new(),
