@@ -7,6 +7,10 @@ throughout the tree — this file imports the root one below so there is a singl
 source of truth. When working in a subdirectory, also read that directory's
 `AGENTS.md` (each links to its parent via a `<!-- Parent: ../AGENTS.md -->` tag).
 
+For anything touching the UI's look and feel (colors, surfaces, components,
+spacing), `DESIGN.md` is the canonical design-system reference — its tokens map
+1:1 to the `:root` custom properties in `src/app.css`.
+
 ## Quick reference
 
 | Task | Command |

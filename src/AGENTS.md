@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-02 | Updated: 2026-06-02 -->
+<!-- Generated: 2026-06-02 | Updated: 2026-06-03 -->
 
 # src
 
@@ -15,7 +15,7 @@ terminals, skills/profiles) and talks to the Rust backend over Tauri IPC.
 |------|-------------|
 | `main.ts` | Entry point. Mounts `App.svelte` into `#app` using Svelte 5's `mount()` API and imports global CSS. |
 | `App.svelte` | Root layout: a CSS grid of `LeftPanel`, `CenterPanel`, and `RightPanel`. Calls `app.init()` on mount and wires the global Alt+digit query shortcuts. |
-| `app.css` | Global styles and CSS custom properties (the dark theme tokens: `--bg`, `--panel`, `--border-focus`, panel widths, etc.). The `.app` grid template lives here. |
+| `app.css` | Global styles and CSS custom properties (the dark theme tokens: `--bg`, `--panel`, `--border-focus`, panel widths, etc.). The `.app` grid template lives here. The design system these tokens define is documented in the root `DESIGN.md`. |
 
 ## Subdirectories
 
