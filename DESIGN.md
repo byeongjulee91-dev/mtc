@@ -226,9 +226,10 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   query's Alt+digit shortcut or submit/append mode.
 
 ### Center / Terminals
-- **`.profile-bar`** — the center toolbar: launcher chips for each visible profile, the cwd
-  hint, a `.seg` split-direction toggle (◧ 좌우 / ⬓ 위아래) that sets which direction chip
-  launches split the focused pane, and the equalize/maximize/close pane controls.
+- **`.profile-bar`** — the center toolbar: a `.seg` split-direction toggle (◧ 좌우 / ⬓ 위아래)
+  at the left that sets which direction a launcher chip opens its new pane in, then the
+  launcher chips for each visible profile, the cwd hint, and the split/equalize/maximize/close
+  pane controls on the right.
 - **`.chip`** + **`.dot`** — a profile launcher: rounded 999px pill with a colored status
   dot (the profile's `color`) and name. Hover borders `var(--accent)`. Clicking opens a new
   pane with that profile.
@@ -308,10 +309,11 @@ is the user reshaping their workspace, all persisted to `app.data`:
 - **Panel collapse / reveal** — double-click a divider (or the hide button) to collapse a
   panel to width 0; an edge `.reveal-zone` then fades in a `.reveal-tab` to bring it back.
 - **Pane tiling** — launcher chips open a new pane split off the focused one in the direction
-  set by the profile bar's split-direction toggle (◧ side-by-side, the default / ⬓ stacked);
-  the Alt+Shift+= / Alt+Shift+- shortcuts clone the focused pane in an explicit direction.
-  Move focus with Alt+Arrow, maximize/restore with Alt+Enter, equalize, and close with
-  Ctrl+W. Panes are positioned by % from a BSP tree so they reflow as the window resizes.
+  set by the profile bar's split-direction toggle (◧ side-by-side, the default / ⬓ stacked).
+  The ◧/⬓ toolbar buttons and the Alt+Shift+= / Alt+Shift+- shortcuts clone the focused pane
+  in an explicit direction. Move focus with Alt+Arrow, maximize/restore with Alt+Enter,
+  equalize, and close with Ctrl+W. Panes are positioned by % from a BSP tree so they reflow
+  as the window resizes.
 - **Terminal font zoom** — Ctrl+wheel or Ctrl +/-/0 adjusts the shared terminal font size,
   clamped 6–40 (default 15). Every pane re-fits and the new cols/rows are pushed to each PTY.
 - **Per-workspace warm sessions** — switching projects swaps the visible `.project-layer`

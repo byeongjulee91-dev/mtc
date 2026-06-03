@@ -5,7 +5,7 @@ inside **WSL**, side-by-side, with split & maximize — plus a todo/query panel 
 skill panel.
 
 ```
-┌─ Todos / Queries ─┬─ [Claude] [Codex] [WSL Shell]   ◧|⬓ ⛶ ✕ ─┬─ Skills ───┐
+┌─ Todos / Queries ─┬─ ◧|⬓   [Claude] [Codex] [WSL]   ◧ ⬓ ⛶ ✕ ─┬─ Skills ───┐
 │  [ ] write tests  │ ┌ Claude · claude ─┐┌ Codex · codex ──────┐│ • plan     │
 │  [x] ship v0.1    │ │ (WSL pty)        ││ (WSL pty)           ││ • review   │
 │                   │ │                  ││                     ││ • ship     │
@@ -17,7 +17,9 @@ skill panel.
 - **Left** — Todos and saved Queries. `➤` sends a query into the focused terminal.
 - **Center** — terminal sessions launched from **profiles**. Each session spawns a
   real PTY; on Windows it enters WSL via `wsl.exe` and runs the profile's command.
-  Split vertically/horizontally and maximize any pane.
+  A split-direction toggle (`◧` side-by-side / `⬓` stacked) at the bar's left sets which
+  way a chip opens its new pane; the `◧`/`⬓` buttons and Alt+Shift+=/- also split or
+  maximize any pane.
 - **Right** — **Skills** discovered from configurable roots (insert `/<name>` into the
   focused terminal), and a **Profiles** editor.
 

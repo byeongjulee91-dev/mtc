@@ -198,18 +198,7 @@
 </script>
 
 <div class="profile-bar">
-  {#each app.visibleProfiles as p (p.id)}
-    <button class="chip" onclick={() => openProfile(p)} title={p.command || 'WSL shell'}>
-      <span class="dot" style="background:{p.color}"></span>{p.name}
-    </button>
-  {/each}
-  <span style="flex:1"></span>
-  {#if app.activeProject?.path}
-    <span class="cwd-hint" title="New sessions open in {app.activeProject.path}">
-      📁 {app.activeProject.name || app.activeProject.path}
-    </span>
-  {/if}
-  <div class="seg" role="group" aria-label="새 터미널 분할 방향">
+  <div class="seg" role="group" aria-label="새 터미널 분할 방향" title="새 터미널을 열 방향">
     <button
       class="seg-btn"
       class:on={splitDir === 'v'}
@@ -225,6 +214,19 @@
       onclick={() => (splitDir = 'h')}
     >⬓ 위아래</button>
   </div>
+  {#each app.visibleProfiles as p (p.id)}
+    <button class="chip" onclick={() => openProfile(p)} title={p.command || 'WSL shell'}>
+      <span class="dot" style="background:{p.color}"></span>{p.name}
+    </button>
+  {/each}
+  <span style="flex:1"></span>
+  {#if app.activeProject?.path}
+    <span class="cwd-hint" title="New sessions open in {app.activeProject.path}">
+      📁 {app.activeProject.name || app.activeProject.path}
+    </span>
+  {/if}
+  <button class="btn icon" title="Split vertical (Alt+Shift++)" onclick={() => splitActive('v')}>◧</button>
+  <button class="btn icon" title="Split horizontal (Alt+Shift+-)" onclick={() => splitActive('h')}>⬓</button>
   <button class="btn icon" title="Distribute panes evenly" onclick={equalizeActive}>⊞</button>
   <button class="btn icon" title="Maximize / restore (Alt+Enter)" onclick={toggleMaxActive}>⛶</button>
   <button class="btn icon" title="Close focused (Ctrl+W)" onclick={closeActiveFocused}>✕</button>
