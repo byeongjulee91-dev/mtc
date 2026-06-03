@@ -240,17 +240,19 @@
       {:else}
         {#each app.activeProject.todos as t (t.id)}
           {#if editingTodoId === t.id}
-            <div class="list-row top">
+            <div class="list-row top" style="flex-direction:column;align-items:stretch;gap:6px">
               <textarea
-                class="field edit-area grow-flex"
+                class="field edit-area"
                 rows="1"
                 bind:value={editTodoText}
                 use:focusSelect
                 use:autogrow
                 onkeydown={(e) => editKeydown(e, saveEditTodo, cancelEditTodo)}
               ></textarea>
-              <button class="btn icon" title="Save (Ctrl+Enter)" onclick={saveEditTodo}>✓</button>
-              <button class="btn icon" title="Cancel (Esc)" onclick={cancelEditTodo}>✕</button>
+              <div style="display:flex;gap:6px;justify-content:flex-end">
+                <button class="btn icon" title="Save (Ctrl+Enter)" onclick={saveEditTodo}>✓</button>
+                <button class="btn icon" title="Cancel (Esc)" onclick={cancelEditTodo}>✕</button>
+              </div>
             </div>
           {:else}
             <div class="list-row top row-float">
@@ -464,12 +466,6 @@
     overflow-y: auto;
     line-height: 1.4;
     white-space: pre-wrap;
-  }
-  /* Share the row width with the Save/Cancel buttons (the todo edit row is a
-     horizontal flex; .grow can't be reused here as it forces nowrap). */
-  .grow-flex {
-    flex: 1;
-    min-width: 0;
   }
 
   /* Count of warm (live) terminal sessions a project currently holds. */
