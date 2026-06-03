@@ -153,6 +153,9 @@ body,
 .panel-body {
   flex: 1;
   overflow-y: auto;
+  /* Never scroll horizontally — chrome must stay legible at the min panel width
+     (chips/names wrap, action clusters fit) rather than clip behind a scrollbar. */
+  overflow-x: hidden;
   min-height: 0;
 }
 
@@ -312,26 +315,19 @@ button {
   flex-wrap: wrap;
   gap: 6px;
 }
-/* The query name itself — lightly emphasised so it anchors each saved row. */
+/* The query name itself — lightly emphasised so it anchors each saved row.
+   min-width:0 lets it shrink and wrap beside the chips instead of overflowing. */
 .q-name {
   font-weight: 500;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
-/* Always-visible chip showing the Alt+digit shortcut bound to a query. */
-.hotkey-badge {
-  flex: none;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 2px 5px;
-  border-radius: 4px;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-/* Subtle chip marking an append-only query (no Enter on insert). Muted rather
-   than accent-colored so it reads as a quiet annotation next to the name. */
-.mode-badge {
+/* Always-visible interactive chips on a saved query's title line. Both stay
+   visible at all times and change the setting on click — the hotkey is a styled
+   <select>, the insert-mode a toggle button — so the hover action cluster can
+   drop those two controls and stay narrow enough never to clip at min width. */
+.chip-select,
+.chip-mode {
   flex: none;
   font-size: 10px;
   font-weight: 600;
@@ -341,24 +337,26 @@ button {
   border: 1px solid var(--border);
   color: var(--muted);
   background: var(--panel-2);
-}
-/* Compact dropdown (in the hover actions) to bind/clear a query's shortcut. */
-.hotkey-select {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 1px 2px;
-  font: inherit;
-  font-size: 11px;
-  line-height: 1;
+  font-family: inherit;
   cursor: pointer;
 }
-.hotkey-select:hover {
+.chip-select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+/* An assigned shortcut reads as an accent affordance (matching the former hotkey
+   badge); unassigned stays muted ("단축키 없음"). */
+.chip-select.assigned {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.chip-select:hover,
+.chip-mode:hover {
   border-color: var(--accent);
 }
 /* Full-size select for the query compose form — matches the .btn height and the
-   13px base, unlike the compact 11px .hotkey-select used in hover action clusters. */
+   13px base, unlike the compact 10px chips used on saved rows. */
 .select-lg {
   flex: none;
   background: var(--panel-2);

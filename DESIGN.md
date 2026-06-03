@@ -20,7 +20,7 @@ The system's signature marker — its equivalent of a brand stripe — is the **
 split**. Cyan `var(--border-focus)` (#00d7ff) means *this is live / focused / where your
 keystrokes go*: the focused pane border, the terminal cursor, the active resize handle.
 Blue `var(--accent)` (#4a9eff) means *this is interactive / hover / a hint*: button hover
-borders, hotkey badges, the live-session count. Cyan is state; blue is affordance. Keeping
+borders, the assigned-hotkey chip, the live-session count. Cyan is state; blue is affordance. Keeping
 the two roles distinct is the one subtle thing a reader would otherwise miss.
 
 Type runs a single **system sans-serif** stack for all chrome and a **monospace** stack
@@ -56,7 +56,7 @@ them as `var(--name)` — never inline the hex.
   surface — the focused pane border (`.pane.focused`), the xterm cursor, the active drag
   divider, the drag-over drop outline. This is the closest thing to a brand color.
 - **Interactive / Hint** (`var(--accent)` — #4a9eff): Blue. Hover borders on buttons,
-  tabs, chips, and inputs; the hotkey badge; the live-session count badge; the project
+  tabs, chips, and inputs; the assigned-hotkey chip; the live-session count badge; the project
   active-mark (`.path-mark`). Signals "you can act here," not "this is live."
 
 ### Surface (the three-tone depth ladder)
@@ -115,7 +115,7 @@ The system has no `{typography.*}` token file. The sizes actually in use:
 | Base / body / list rows | 13px | normal | `:root` default |
 | Panel head, empty states | 12px | 600 | UPPERCASE, `letter-spacing: 0.04em` (panel head) |
 | Section head, pane head, captions, hints, query text | 11px | 600 (heads) / normal | UPPERCASE on section head |
-| Hotkey / mode / live badges | 10px | 600 | — |
+| Saved-query chips, live badge | 10px | 600 | — |
 | Terminal text | 15px default (6–40) | normal | monospace; `DEFAULT_FONT_SIZE`, Ctrl+wheel zoom |
 
 ### Principles
@@ -179,8 +179,8 @@ No token scale — literal px:
 | Value | Use |
 |---|---|
 | 0 | Terminal panes (`.pane`), the grid shell — sharp by default |
-| 4px | Badges (`.hotkey-badge`, `.mode-badge`) |
-| 5px | Buttons (`.btn`), tabs (`.tab`), inputs (`.field`), compact selects (`.hotkey-select`) |
+| 4px | Saved-query chips (`.chip-select`, `.chip-mode`) |
+| 5px | Buttons (`.btn`), tabs (`.tab`), inputs (`.field`), the compose select (`.select-lg`) |
 | 6px | Reveal tab, `.row-actions` cluster, scrollbar thumb |
 | 999px / 50% | Pills (`.chip`, `.cwd-hint`, `.live-badge`) and status dots (`.dot`, `.path-mark`) |
 
@@ -223,8 +223,8 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   and switches text from `var(--muted)` to `var(--text)`.
 - **`.field`** (input/textarea) — full-width form input: `var(--bg)` fill, 1px border,
   radius 5px, inherits font.
-- **`.hotkey-select`** — a compact 11px dropdown used inside hover action clusters to bind a
-  query's Alt+digit shortcut or submit/append mode.
+- **`.select-lg`** — the full-size `var(--panel-2)` dropdown in the query compose form
+  (insert mode for the query being saved); matches `.btn` height at the 13px base.
 
 ### Center / Terminals
 - **`.profile-bar`** — the center toolbar: an icon split-direction toggle (a `.btn.icon`
@@ -261,10 +261,15 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   ●/○ active indicator in `var(--accent)`.
 - **`.empty`** — muted 12px empty-state / helper copy block.
 
-### Badges
-- **`.hotkey-badge`** — always-visible "Alt+N" chip in `var(--accent)` on a 12% tint,
-  marking a query's bound shortcut.
-- **`.mode-badge`** — muted "append" chip marking an append-only (no-Enter) query.
+### Badges & Chips
+- **`.chip-select`** — the always-visible hotkey chip on a saved query: a styled
+  (`appearance:none`) `<select>` that opens the Alt+digit picker on click. Muted
+  ("단축키 없음") when unassigned; flips to the `var(--accent)` 12%-tint affordance once a
+  digit is bound (`.assigned`).
+- **`.chip-mode`** — the always-visible insert-mode chip on a saved query: a muted toggle
+  button reading "↵ Submit" / "… Append" that flips the mode on click. Both chips live on the
+  title line so the hover `.row-actions` cluster can stay narrow (no per-row selects),
+  keeping the panel legible at its 180px min width.
 - **`.live-badge`** — a 999px count pill (`var(--accent)` fill, `var(--bg)` text) on a
   project row showing how many warm sessions it holds.
 

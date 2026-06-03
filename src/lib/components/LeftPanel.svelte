@@ -233,13 +233,13 @@
       <div style="display:flex;gap:6px;align-items:center">
         <select
           class="select-lg"
-          title="What happens when this query is inserted"
+          title="What happens when this query is inserted: submit (append Enter) or append only"
           bind:value={querySubmit}
         >
-          <option value={true}>↵ Submit on insert</option>
-          <option value={false}>… Append only</option>
+          <option value={true}>↵ Submit</option>
+          <option value={false}>… Append</option>
         </select>
-        <button class="btn" style="flex:1" onclick={addQuery}>Save query</button>
+        <button class="btn" style="flex:1" onclick={addQuery}>Save</button>
       </div>
     </div>
     {#if app.data.queries.length === 0}
@@ -263,47 +263,54 @@
           </div>
         {:else}
           <div class="list-row top row-float query-item">
-            <div
-              class="grow wrap"
-              draggable="true"
-              role="presentation"
-              ondragstart={(e) => startDrag(e, q.text)}
-              ondragend={() => (bus.dragText = null)}
-              title="Drag onto a terminal to insert"
-            >
+            <div class="grow wrap">
               <div class="q-title">
-                {#if q.hotkey !== null}
-                  <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">Alt+{q.hotkey}</span>
-                {/if}
-                <span class="q-name">{q.name}</span>
-                {#if !q.submit}
-                  <span class="mode-badge" title="Inserting appends the text only — no Enter">append</span>
-                {/if}
+                <!-- Hotkey + insert-mode are managed inline as always-visible
+                     chips (click to change); they're deliberately kept out of
+                     the hover action cluster so it stays narrow at min width. -->
+                <select
+                  class="chip-select"
+                  class:assigned={q.hotkey !== null}
+                  title="Keyboard shortcut — Alt+digit inserts this query"
+                  onchange={(e) =>
+                    app.setQueryHotkey(q.id, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
+                >
+                  <option value="" selected={q.hotkey === null}>단축키 없음</option>
+                  {#each HOTKEY_DIGITS as d}
+                    <option value={d} selected={q.hotkey === d}>Alt+{d}</option>
+                  {/each}
+                </select>
+                <button
+                  class="chip-mode"
+                  title={q.submit
+                    ? 'Submits on insert (Enter appended) — click for append-only'
+                    : 'Appends only (no Enter) — click to submit on insert'}
+                  onclick={() => app.setQuerySubmit(q.id, !q.submit)}
+                  >{q.submit ? '↵ Submit' : '… Append'}</button
+                >
+                <span
+                  class="q-name"
+                  draggable="true"
+                  role="presentation"
+                  ondragstart={(e) => startDrag(e, q.text)}
+                  ondragend={() => (bus.dragText = null)}
+                  title="Drag onto a terminal to insert">{q.name}</span
+                >
               </div>
               {#if q.text.trim() !== q.name.trim()}
-                <div class="muted query-text" title={q.text}>{q.text}</div>
+                <div
+                  class="muted query-text"
+                  draggable="true"
+                  role="presentation"
+                  ondragstart={(e) => startDrag(e, q.text)}
+                  ondragend={() => (bus.dragText = null)}
+                  title={q.text}
+                >
+                  {q.text}
+                </div>
               {/if}
             </div>
             <div class="row-actions">
-              <select
-                class="hotkey-select"
-                title="Insert mode: submit (Enter) or append only"
-                onchange={(e) => app.setQuerySubmit(q.id, e.currentTarget.value === 'submit')}
-              >
-                <option value="submit" selected={q.submit}>↵ Submit</option>
-                <option value="append" selected={!q.submit}>… Append</option>
-              </select>
-              <select
-                class="hotkey-select"
-                title="Assign an Alt+digit shortcut"
-                onchange={(e) =>
-                  app.setQueryHotkey(q.id, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
-              >
-                <option value="" selected={q.hotkey === null}>Alt –</option>
-                {#each HOTKEY_DIGITS as d}
-                  <option value={d} selected={q.hotkey === d}>Alt+{d}</option>
-                {/each}
-              </select>
               <button
                 class="btn icon"
                 title="Send to focused terminal"
