@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-02 | Updated: 2026-06-02 -->
+<!-- Generated: 2026-06-02 | Updated: 2026-06-03 -->
 
 # components
 
@@ -12,7 +12,7 @@ on the focused terminal and on persisted state.
 
 | File | Description |
 |------|-------------|
-| `CenterPanel.svelte` | The workspace. Holds **one `PaneRuntime` per visited bucket** (a project id, or `UNFILED_KEY` when none is selected) in a `SvelteMap`, and renders *every* bucket's panes in one keyed `{#each}` — inactive buckets are mounted but `display:none` so their PTY sessions stay warm across project switches. Renders the profile launch bar; opens panes in the active project's cwd; splits/maximizes/closes panes on the active runtime; lazily builds (restores) a bucket's runtime from its persisted `layout` once `app.loaded`; persists the live tree after every structural change; prunes runtimes for deleted projects; and parks a bucket (`bus.parkProject`) by dropping its runtime. |
+| `CenterPanel.svelte` | The workspace. Holds **one `PaneRuntime` per visited bucket** (a project id, or `UNFILED_KEY` when none is selected) in a `SvelteMap`, and renders *every* bucket's panes in one keyed `{#each}` — inactive buckets are mounted but `display:none` so their PTY sessions stay warm across project switches. Renders the profile launch bar; opens panes in the active project's cwd; splits/maximizes/closes panes on the active runtime; renders a draggable handle on every split boundary (`rt.dividers` → `setDividerRatio`, pointer-capture drag); lazily builds (restores) a bucket's runtime from its persisted `layout` once `app.loaded`; persists the live tree after every structural change; prunes runtimes for deleted projects; and parks a bucket (`bus.parkProject`) by dropping its runtime. |
 | `TerminalPane.svelte` | A single xterm.js terminal bound to a backend PTY session. Creates the session via `api.createSession`, streams output in, forwards keystrokes/resizes out, and handles Ctrl+wheel / Ctrl +/-/0 font zoom through shared state. Takes a `visible` prop (its bucket is the shown one): only visible panes own `bus.send` / join the `sendAll` broadcast pool, and a pane re-fits + resizes its PTY when it becomes visible again (xterm can't measure under `display:none`). Shows a placeholder in standalone mode. |
 | `LeftPanel.svelte` | Two tabs: **Project** (add/select projects, per-project todos; a live-session-count badge and a **park** button — shown on warm, non-active projects — via `bus.liveCounts` / `bus.parkProject`) and **Query** (save reusable query text and send it to the focused terminal via `bus.send`). |
 | `RightPanel.svelte` | Two tabs: **Skills** (manage skill-root paths, browse via the Tauri dialog plugin, list discovered skills, insert `/<name>` into the focused terminal) and **Profiles** (edit launch profiles — color/name/command/distro/cwd/keepOpen — and reset to defaults). |
@@ -39,6 +39,12 @@ on the focused terminal and on persisted state.
 - `TerminalPane` reacts to `app.data.terminalFontSize` via `$effect`: any pane (or
   Ctrl-zoom) that changes the size re-fits every pane and pushes new cols/rows to
   its PTY. Preserve the "skip if unchanged" guard to avoid resize loops.
+- Pane sizing has two front-ends, both funnelling into one `setRatioAt` setter in
+  `../tiling.ts`: a **drag handle** per split boundary (`CenterPanel`), and
+  **Alt+Shift+Arrow** keys (`TerminalPane.onKey` → `bus.resizeDir` →
+  `resizeFocused` → `resizePane`), which move the nearest divider of the matching
+  axis Windows-Terminal-style. Changing a ratio re-lays the panes, and the per-pane
+  `ResizeObserver` pushes the new cols/rows to each PTY — no extra wiring needed.
 - Profiles are cloned with the bucket's project path as `cwd` (`prepareProfile`)
   so new sessions open in the selected project directory. The persisted layout
   stores only the profile **id** — the cwd is re-applied at spawn time, so it

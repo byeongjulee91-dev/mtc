@@ -232,15 +232,17 @@
   };
 
   // Intercept shortcuts before they reach the PTY (return false stops xterm from
-  // handling them): Alt+Arrow moves focus to the neighbouring pane; Alt+Enter
-  // maximizes; Alt+Shift++/- splits; Ctrl+W closes; Ctrl +/-/0 zooms the font.
+  // handling them): Alt+Arrow moves focus to the neighbouring pane, Alt+Shift+Arrow
+  // resizes the focused pane (Windows Terminal style); Alt+Enter maximizes;
+  // Alt+Shift++/- splits; Ctrl+W closes; Ctrl +/-/0 zooms the font.
   function onKey(e: KeyboardEvent): boolean {
     if (e.type !== 'keydown') return true;
     if (e.altKey && !e.ctrlKey && !e.metaKey) {
       const dir = ARROW_DIR[e.key];
       if (dir) {
         e.preventDefault(); // also stop browser back/forward in standalone preview
-        bus.focusDir(dir);
+        if (e.shiftKey) bus.resizeDir(dir);
+        else bus.focusDir(dir);
         return false;
       }
       if (e.key === 'Enter') {

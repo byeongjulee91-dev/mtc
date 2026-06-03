@@ -500,6 +500,43 @@ textarea.field {
 .pane-term .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: #3a4350;
 }
+/* Draggable boundaries between tiled panes. They sit on the split line, a few px
+   wide, above the panes (focused pane is z-index 2). Invisible until hover/drag,
+   mirroring the side-panel resize handles. */
+.pane-divider {
+  position: absolute;
+  z-index: 4;
+}
+.pane-divider.v {
+  width: 7px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+}
+.pane-divider.h {
+  height: 7px;
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
+.pane-divider:hover,
+.tiles.drag-v .pane-divider.v,
+.tiles.drag-h .pane-divider.h {
+  background: var(--border-focus);
+  opacity: 0.5;
+}
+/* While dragging, force the resize cursor everywhere (the terminal sets its own)
+   and suppress text selection so the pane underneath doesn't grab the pointer. */
+.tiles.drag-v,
+.tiles.drag-v * {
+  cursor: col-resize;
+}
+.tiles.drag-h,
+.tiles.drag-h * {
+  cursor: row-resize;
+}
+.tiles.drag-v,
+.tiles.drag-h {
+  user-select: none;
+}
 .center-empty {
   position: absolute;
   inset: 0;

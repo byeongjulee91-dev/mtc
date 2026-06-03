@@ -205,6 +205,11 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
 - **`.resize-handle`** (`.left` / `.right`) — a 7px-wide invisible strip over the gap
   between a panel and the center; drag to resize, double-click to collapse. Lights up
   `var(--border-focus)` at 0.5 opacity on hover/while dragging.
+- **`.pane-divider`** (`.v` / `.h`) — the same 7px invisible handle, but on every split
+  boundary *between terminal panes*: drag to rebalance the two sides. `.v` is a vertical
+  line (`col-resize`), `.h` a horizontal one (`row-resize`); both light up like the panel
+  handle on hover/drag. While a drag is live the `.tiles` container forces the resize
+  cursor and suppresses selection (`.tiles.drag-v` / `.drag-h`).
 - **`.reveal-zone`** + **`.reveal-tab`** — when a panel is collapsed, a 20px edge hover-zone
   fades in a 24×64px tab (`opacity 0 → 1`) to bring the panel back. The tab is pinned to the
   **vertical middle** of the window (drawer-handle position) so it clears the top-right
@@ -308,8 +313,9 @@ is the user reshaping their workspace, all persisted to `app.data`:
   set by the profile bar's split-direction toggle (◧ side-by-side, the default / ⬓ stacked).
   The ◧/⬓ toolbar buttons and the Alt+Shift+= / Alt+Shift+- shortcuts clone the focused pane
   in an explicit direction. Move focus with Alt+Arrow, maximize/restore with Alt+Enter,
-  equalize, and close with Ctrl+W. Panes are positioned by % from a BSP tree so they reflow
-  as the window resizes.
+  equalize, and close with Ctrl+W. Resize a pane by dragging the `.pane-divider` on a split
+  boundary or with Alt+Shift+Arrow (Windows-Terminal style — the nearest divider of that axis
+  moves). Panes are positioned by % from a BSP tree so they reflow as the window resizes.
 - **Terminal font zoom** — Ctrl+wheel or Ctrl +/-/0 adjusts the shared terminal font size,
   clamped 6–40 (default 15). Every pane re-fits and the new cols/rows are pushed to each PTY.
 - **Per-workspace warm sessions** — switching projects swaps the visible `.project-layer`

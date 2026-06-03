@@ -6,6 +6,7 @@
   import { UNFILED_KEY } from '../defaults';
   import { PaneRuntime } from '../session.svelte';
   import { buildLayout, serializeTree } from '../layout';
+  import type { Box, PaneDivider } from '../tiling';
   import TerminalPane from './TerminalPane.svelte';
 
   // One live runtime per *visited* workspace bucket (a project, or the "Unfiled"
@@ -157,6 +158,12 @@
   // Side panels / terminal key handlers act on the *active* runtime. These read
   // current state at call time, so a single assignment is enough.
   bus.focusDir = (dir) => activeRuntime()?.focusNeighbor(dir);
+  bus.resizeDir = (dir) => {
+    const rt = activeRuntime();
+    if (!rt) return;
+    rt.resizeFocused(dir);
+    persist(bucketKey);
+  };
   bus.toggleMax = () => activeRuntime()?.toggleMax();
   bus.splitDir = (dir) => splitActive(dir);
   bus.closeFocused = () => closeActiveFocused();
@@ -195,6 +202,41 @@
   function focus(rt: PaneRuntime, id: number): void {
     rt.focusedId = id;
   }
+
+  // --- pane divider drag: drag a boundary between two panes to re-balance them.
+  // Mirrors App.svelte's side-panel resize — pointer capture keeps move/up events
+  // flowing even while the cursor is over a terminal. The pointer's position
+  // within the split's region becomes the new ratio; we persist once on release.
+  let tilesEl: HTMLElement;
+  let dragPath = $state<string | null>(null);
+  let dragDir = $state<'v' | 'h'>('v');
+  let dragArea: Box | null = null;
+
+  function startDividerDrag(e: PointerEvent, d: PaneDivider): void {
+    e.preventDefault();
+    dragPath = d.path;
+    dragDir = d.dir;
+    dragArea = d.area;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onDividerDrag(e: PointerEvent): void {
+    if (dragPath === null || dragArea === null) return;
+    const rt = activeRuntime();
+    if (!rt) return;
+    const r = tilesEl.getBoundingClientRect();
+    const ratio =
+      dragDir === 'v'
+        ? (((e.clientX - r.left) / r.width) * 100 - dragArea.left) / dragArea.width
+        : (((e.clientY - r.top) / r.height) * 100 - dragArea.top) / dragArea.height;
+    rt.setDividerRatio(dragPath, ratio);
+  }
+  function endDividerDrag(e: PointerEvent): void {
+    if (dragPath === null) return;
+    dragPath = null;
+    dragArea = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    persist(bucketKey);
+  }
 </script>
 
 <div class="profile-bar">
@@ -225,7 +267,12 @@
   <button class="btn icon" title="Close focused (Ctrl+W)" onclick={closeActiveFocused}>✕</button>
 </div>
 
-<div class="tiles">
+<div
+  class="tiles"
+  bind:this={tilesEl}
+  class:drag-v={dragPath !== null && dragDir === 'v'}
+  class:drag-h={dragPath !== null && dragDir === 'h'}
+>
   {#each [...runtimes] as [key, rt] (key)}
     {#if rt.tree !== null}
       {@const isActive = key === bucketKey}
@@ -253,6 +300,23 @@
             </div>
           {/if}
         {/each}
+        <!-- Drag handles on every split boundary (active layer only). -->
+        {#if isActive}
+          {#each rt.dividers as d (d.path)}
+            <div
+              class="pane-divider {d.dir}"
+              role="separator"
+              aria-orientation={d.dir === 'v' ? 'vertical' : 'horizontal'}
+              title="Drag to resize · Alt+Shift+Arrow"
+              style={d.dir === 'v'
+                ? `left:${d.pos}%;top:${d.area.top}%;height:${d.area.height}%`
+                : `top:${d.pos}%;left:${d.area.left}%;width:${d.area.width}%`}
+              onpointerdown={(e) => startDividerDrag(e, d)}
+              onpointermove={onDividerDrag}
+              onpointerup={endDividerDrag}
+            ></div>
+          {/each}
+        {/if}
       </div>
     {/if}
   {/each}

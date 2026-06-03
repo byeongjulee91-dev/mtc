@@ -134,8 +134,6 @@ mtc/
    The Rust side is schema-agnostic (`serde_json::Value`), so no backend change needed.
 
 ### Ideas / next steps (not yet built)
-- Resizable side panels + draggable split dividers (tiling already supports `nudgeRatio`).
-- Keyboard shortcuts (e.g. prefix or Ctrl-Shift-…) for split/maximize/close/new.
 - Persist & restore the session layout across restarts.
 - Per-profile env vars and a distro picker populated from `wsl -l -q`.
 - "Scan skills via WSL" (`wsl.exe -d <distro> -- bash -lc …`) instead of UNC paths.

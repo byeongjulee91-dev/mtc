@@ -20,6 +20,12 @@ class Bus {
    * container registers this; the focused terminal's key handler calls it.
    */
   focusDir: (dir: Dir) => void = () => {};
+  /**
+   * Resize the focused pane along an axis (Alt+Shift+Arrow): Left/Right move the
+   * nearest vertical divider, Up/Down the nearest horizontal one. Registered by
+   * the tiling container; the focused terminal's key handler calls it.
+   */
+  resizeDir: (dir: Dir) => void = () => {};
   /** Maximize / restore the focused pane (Alt+Enter). Registered by the tiling
    *  container; the focused terminal's key handler calls it. */
   toggleMax: () => void = () => {};

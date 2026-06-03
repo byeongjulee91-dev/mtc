@@ -2,6 +2,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import type { Profile } from './types';
 import type { BuiltLayout } from './layout';
 import {
+  computeDividers,
   computeTiles,
   effectiveTiles,
   equalize,
@@ -10,14 +11,20 @@ import {
   leafCount,
   paneOrder,
   removePane,
+  resizePane,
+  setRatioAt,
   splitPane,
   type Box,
   type Dir,
+  type PaneDivider,
   type TileNode,
 } from './tiling';
 
 /** Fractional tiling area (percent units) every pane layout is computed within. */
 export const AREA: Box = { left: 0, top: 0, width: 100, height: 100 };
+
+/** Fraction of a split that a single Alt+Shift+Arrow nudges its divider. */
+const RESIZE_STEP = 0.03;
 
 /**
  * Live tiling state for one workspace bucket (a project, or the "Unfiled"
@@ -56,6 +63,13 @@ export class PaneRuntime {
   /** Effective per-pane boxes, honoring the maximize state. */
   get tiles(): Map<number, Box> {
     return effectiveTiles(this.tree, this.maximizedId, AREA);
+  }
+
+  /** Draggable split boundaries for the current layout — none while maximized
+   *  (a single pane fills the area) or empty. */
+  get dividers(): PaneDivider[] {
+    if (this.tree === null || this.maximizedId !== null) return [];
+    return computeDividers(this.tree, AREA);
   }
 
   /** Replace this runtime's contents from a freshly built layout. */
@@ -114,6 +128,19 @@ export class PaneRuntime {
     if (this.tree === null) return;
     this.tree = equalize(this.tree);
     this.maximizedId = null;
+  }
+
+  /** Resize the focused pane one step along `dir` (Alt+Shift+Arrow). Ignored
+   *  while a pane is maximized — its divider isn't on screen to move. */
+  resizeFocused(dir: Dir): void {
+    if (this.focusedId === null || this.tree === null || this.maximizedId !== null) return;
+    this.tree = resizePane(this.tree, this.focusedId, dir, RESIZE_STEP);
+  }
+
+  /** Set a split's ratio by its divider path (live divider drag). */
+  setDividerRatio(path: string, ratio: number): void {
+    if (this.tree === null) return;
+    this.tree = setRatioAt(this.tree, path, ratio);
   }
 
   /** Move focus to the spatially adjacent pane (Alt+Arrow). While maximized the

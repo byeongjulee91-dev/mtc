@@ -167,6 +167,116 @@ function clampRatio(r: number): number {
   return Math.max(0.1, Math.min(0.9, r));
 }
 
+/**
+ * A draggable boundary between the two children of a split. `path` addresses the
+ * split node (see `setRatioAt`); `pos` is the divider line's offset along its
+ * axis (x for 'v', y for 'h') and `area` is the split's full region — a drag maps
+ * the pointer within it to a ratio. Same fractional units as `computeTiles`.
+ */
+export interface PaneDivider {
+  path: string;
+  dir: 'v' | 'h';
+  pos: number;
+  area: Box;
+}
+
+/**
+ * Enumerate every split's divider with the geometry a drag handle needs. The
+ * root split is addressed by 'r'; each level appends '0' (first) or '1' (second).
+ * Using a non-empty root token keeps every path truthy (no falsy-'' landmine).
+ */
+export function computeDividers(root: TileNode, area: Box, path = 'r'): PaneDivider[] {
+  if (root.type === 'leaf') return [];
+  const out: PaneDivider[] = [];
+  if (root.dir === 'v') {
+    const firstW = area.width * root.ratio;
+    out.push({ path, dir: 'v', pos: area.left + firstW, area });
+    out.push(...computeDividers(root.first, { ...area, width: firstW }, path + '0'));
+    out.push(
+      ...computeDividers(
+        root.second,
+        { ...area, left: area.left + firstW, width: area.width - firstW },
+        path + '1',
+      ),
+    );
+  } else {
+    const firstH = area.height * root.ratio;
+    out.push({ path, dir: 'h', pos: area.top + firstH, area });
+    out.push(...computeDividers(root.first, { ...area, height: firstH }, path + '0'));
+    out.push(
+      ...computeDividers(
+        root.second,
+        { ...area, top: area.top + firstH, height: area.height - firstH },
+        path + '1',
+      ),
+    );
+  }
+  return out;
+}
+
+/**
+ * Set the ratio of the split addressed by `path` (from `computeDividers`). The
+ * leading 'r' marks the root; each following '0'/'1' descends into first/second.
+ * The ratio is clamped, so out-of-range drag values are safe.
+ */
+export function setRatioAt(root: TileNode, path: string, ratio: number): TileNode {
+  const set = (node: TileNode, nav: string): TileNode => {
+    if (node.type !== 'split') return node;
+    if (nav === '') return { ...node, ratio: clampRatio(ratio) };
+    const rest = nav.slice(1);
+    return nav[0] === '0'
+      ? { ...node, first: set(node.first, rest) }
+      : { ...node, second: set(node.second, rest) };
+  };
+  return set(root, path.slice(1));
+}
+
+interface PathSplit {
+  path: string;
+  dir: 'v' | 'h';
+  side: 'first' | 'second';
+  ratio: number;
+}
+
+/** The splits from the root down to the leaf holding `paneId`, each tagged with
+ *  the side the pane descends into. Empty when the pane isn't in the tree. */
+function ancestorSplits(root: TileNode, paneId: number): PathSplit[] {
+  const out: PathSplit[] = [];
+  let node: TileNode = root;
+  let path = 'r';
+  while (node.type === 'split') {
+    const inFirst = paneOrder(node.first).includes(paneId);
+    const inSecond = !inFirst && paneOrder(node.second).includes(paneId);
+    if (!inFirst && !inSecond) break;
+    out.push({ path, dir: node.dir, side: inFirst ? 'first' : 'second', ratio: node.ratio });
+    node = inFirst ? node.first : node.second;
+    path += inFirst ? '0' : '1';
+  }
+  return out;
+}
+
+/**
+ * Resize the focused pane one `step` along `dir`, Windows-Terminal style:
+ * Left/Right move the nearest *vertical* divider, Up/Down the nearest
+ * *horizontal* one. The pane grows when the arrow points toward a neighbour on
+ * that side (right/down → the split where it's `first`; left/up → where it's
+ * `second`) and shrinks at a layout edge, where the only divider of that axis is
+ * on the far side. No-op when the pane has no split of the matching axis.
+ */
+export function resizePane(root: TileNode, paneId: number, dir: Dir, step: number): TileNode {
+  const axis: 'v' | 'h' = dir === 'left' || dir === 'right' ? 'v' : 'h';
+  const grow = dir === 'right' || dir === 'down';
+  const wantSide: 'first' | 'second' = grow ? 'first' : 'second';
+  const delta = grow ? step : -step;
+  const splits = ancestorSplits(root, paneId).filter((s) => s.dir === axis);
+  if (splits.length === 0) return root;
+  // Nearest split (deepest = last) where the pane sits on the arrow's side; fall
+  // back to the nearest split of this axis (edge case → the move shrinks it).
+  const chosen =
+    [...splits].reverse().find((s) => s.side === wantSide) ?? splits[splits.length - 1];
+  return setRatioAt(root, chosen.path, chosen.ratio + delta);
+}
+
 /** Compute a Box for each pane within `area` (fractional units, e.g. percentages). */
 export function computeTiles(root: TileNode, area: Box): Map<number, Box> {
   const out = new Map<number, Box>();

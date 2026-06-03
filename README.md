@@ -19,7 +19,7 @@ skill panel.
   real PTY; on Windows it enters WSL via `wsl.exe` and runs the profile's command.
   A one-click split-direction toggle (`◧` side-by-side ⇄ `⬓` stacked) at the bar's left sets
   which way a chip opens its new pane; the right-side `◧`/`⬓` buttons and Alt+Shift+=/- clone
-  or maximize any pane.
+  or maximize any pane. Resize panes by dragging a split boundary or with Alt+Shift+Arrow.
 - **Right** — **Skills** discovered from configurable roots (insert `/<name>` into the
   focused terminal), and a **Profiles** editor.
 

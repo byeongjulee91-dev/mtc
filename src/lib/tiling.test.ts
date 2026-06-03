@@ -5,6 +5,9 @@ import {
   removePane,
   paneOrder,
   computeTiles,
+  computeDividers,
+  setRatioAt,
+  resizePane,
   effectiveTiles,
   nudgeRatio,
   equalize,
@@ -116,6 +119,83 @@ describe('tiling', () => {
     const tree = nudgeRatio(splitPane(leaf(1), 1, 2, 'v'), 1, 0.3);
     const balanced = equalize(tree) as Extract<typeof tree, { type: 'split' }>;
     expect(balanced.ratio).toBeCloseTo(0.5);
+  });
+});
+
+describe('resizePane', () => {
+  const widths = (tree: ReturnType<typeof splitPane>) =>
+    Object.fromEntries([...computeTiles(tree, AREA)].map(([id, b]) => [id, b.width]));
+
+  it('grows the focused pane toward a neighbour (Windows-Terminal semantics)', () => {
+    // [A | B | C] === (v: A, (v: B, C)); focus the middle pane B.
+    const tree = splitPane(splitPane(leaf(1), 1, 2, 'v'), 2, 3, 'v');
+    expect(paneOrder(tree)).toEqual([1, 2, 3]); // A, B, C
+    // Alt+Shift+Left grows B leftward (shrinks A) — moving the A|(B,C) divider,
+    // NOT the nearer B|C one (which would wrongly shrink B).
+    const left = resizePane(tree, 2, 'left', 0.1);
+    const w = widths(left);
+    expect(w[1]).toBeCloseTo(40); // A shrank 50 → 40
+    expect(w[2]).toBeCloseTo(30); // B grew 25 → 30
+    expect(w[3]).toBeCloseTo(30); // C grew with the column
+    // Alt+Shift+Right grows B toward C — moving the inner B|C divider.
+    const right = widths(resizePane(tree, 2, 'right', 0.1));
+    expect(right[1]).toBeCloseTo(50); // A untouched
+    expect(right[2]).toBeCloseTo(30); // B grew 25 → 30
+    expect(right[3]).toBeCloseTo(20); // C shrank 25 → 20
+  });
+
+  it('shrinks the pane at a layout edge (only divider is on the far side)', () => {
+    const tree = splitPane(leaf(1), 1, 2, 'v'); // [A | B]
+    // A is at the left edge: Alt+Shift+Left has no left neighbour, so it shrinks A.
+    expect(widths(resizePane(tree, 1, 'left', 0.1))[1]).toBeCloseTo(40);
+    // Alt+Shift+Right grows A toward B.
+    expect(widths(resizePane(tree, 1, 'right', 0.1))[1]).toBeCloseTo(60);
+  });
+
+  it('resizes vertically along a horizontal split', () => {
+    // (h: A, (v: B, C)); focus B. Alt+Shift+Up grows the bottom column upward.
+    const tree = splitPane(splitPane(leaf(1), 1, 2, 'h'), 2, 3, 'v');
+    const b = computeTiles(resizePane(tree, 2, 'up', 0.1), AREA).get(2)!;
+    expect(b.top).toBeCloseTo(40); // bottom column rose 50 → 40
+    expect(b.height).toBeCloseTo(60); // and grew 50 → 60
+  });
+
+  it('is a no-op when no split of the matching axis exists', () => {
+    const tree = splitPane(leaf(1), 1, 2, 'v'); // only a vertical divider
+    expect(resizePane(tree, 1, 'up', 0.1)).toBe(tree); // up/down find nothing
+  });
+
+  it('clamps the resulting ratio', () => {
+    const tree = splitPane(leaf(1), 1, 2, 'v');
+    expect(widths(resizePane(tree, 1, 'right', 5))[1]).toBeCloseTo(90); // 0.5+5 → 0.9
+  });
+});
+
+describe('computeDividers / setRatioAt', () => {
+  it('yields one divider per split, all with a truthy path', () => {
+    expect(computeDividers(leaf(1), AREA)).toEqual([]);
+    const tree = splitPane(splitPane(leaf(1), 1, 2, 'v'), 2, 3, 'v'); // [A | B | C]
+    const dividers = computeDividers(tree, AREA);
+    expect(dividers).toHaveLength(2);
+    for (const d of dividers) expect(d.path).toBeTruthy(); // never the falsy ''
+    const root = dividers.find((d) => d.path === 'r')!;
+    expect(root.dir).toBe('v');
+    expect(root.pos).toBeCloseTo(50); // line at 50% of the full area
+    const inner = dividers.find((d) => d.path === 'r1')!;
+    expect(inner.pos).toBeCloseTo(75); // 50% + half of the right 50% region
+  });
+
+  it('sets the ratio of the split addressed by a path', () => {
+    const tree = splitPane(splitPane(leaf(1), 1, 2, 'v'), 2, 3, 'v');
+    // Move the inner B|C divider via its path.
+    const after = setRatioAt(tree, 'r1', 0.3);
+    const w = Object.fromEntries([...computeTiles(after, AREA)].map(([id, b]) => [id, b.width]));
+    expect(w[1]).toBeCloseTo(50); // root untouched
+    expect(w[2]).toBeCloseTo(15); // B = 50% * 0.3
+    expect(w[3]).toBeCloseTo(35); // C = 50% * 0.7
+    // Out-of-range values are clamped.
+    const root = setRatioAt(tree, 'r', 5);
+    expect(computeTiles(root, AREA).get(1)!.width).toBeCloseTo(90);
   });
 });
 
