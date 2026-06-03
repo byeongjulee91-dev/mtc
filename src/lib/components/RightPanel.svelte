@@ -13,6 +13,16 @@
   let dragId = $state<string | null>(null);
   let overId = $state<string | null>(null);
 
+  // Drive skill discovery lazily: only scan while the Skills tab is actually
+  // visible (panel open + Skills tab + data loaded). `refreshSkills()` is cached
+  // and deduped, so reading the active project / skill roots here re-scans only
+  // when they truly change and serves revisits from cache — no `wsl.exe` spawn
+  // happens while the panel is hidden or on another tab.
+  $effect(() => {
+    if (tab !== 'skills' || app.data.rightPanelCollapsed || !app.loaded) return;
+    void app.refreshSkills();
+  });
+
   function insertSkill(s: Skill) {
     bus.send('/' + s.name, false);
   }
@@ -77,7 +87,7 @@
   <button class="tab" class:active={tab === 'profiles'} onclick={() => (tab = 'profiles')}>Profiles</button>
   <span style="flex:1"></span>
   {#if tab === 'skills'}
-    <button class="btn icon" title="Refresh" onclick={() => app.refreshSkills()}>⟳</button>
+    <button class="btn icon" title="Refresh" onclick={() => app.refreshSkills(true)}>⟳</button>
   {:else}
     <button class="btn icon" title="Add profile" onclick={addProfile}>＋</button>
   {/if}

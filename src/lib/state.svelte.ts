@@ -26,7 +26,8 @@ class AppState {
       this.data = defaultAppData();
     }
     this.loaded = true;
-    void this.refreshSkills();
+    // Skills are discovered lazily by the Skills panel (it spawns `wsl.exe`), so
+    // no scan is kicked off here.
   }
 
   private scheduleSave(): void {
@@ -67,8 +68,9 @@ class AppState {
   selectProject(id: string): void {
     this.data.activeProjectId = id;
     this.scheduleSave();
-    // The active project's `.claude/skills` is auto-detected, so re-scan.
-    void this.refreshSkills();
+    // The active project's `.claude/skills` is auto-detected, but discovery is
+    // driven lazily by the Skills panel (it spawns `wsl.exe`) — switching
+    // projects no longer scans on its own.
   }
 
   // --- per-workspace terminal layout (persisted; drives restore on launch) ---
@@ -284,37 +286,60 @@ class AppState {
     if (path && !this.data.skillRoots.includes(path)) {
       this.data.skillRoots.push(path);
       this.scheduleSave();
-      void this.refreshSkills();
+      this.invalidateSkillCache();
+      void this.refreshSkills(true);
     }
   }
   removeSkillRoot(path: string): void {
     this.data.skillRoots = this.data.skillRoots.filter((x) => x !== path);
     this.scheduleSave();
-    void this.refreshSkills();
+    this.invalidateSkillCache();
+    void this.refreshSkills(true);
   }
-  // Guard for skill discovery: discovery spawns `wsl.exe`, so we skip a re-scan
-  // when the inputs are unchanged (a re-select of the same project) and ignore a
-  // slow scan whose result a newer scan has already superseded.
+
+  // Skill discovery spawns `wsl.exe`, so results are cached per (roots, project)
+  // for the session — switching back to a visited project then costs no spawn.
+  // The roots span every project, so editing them clears the whole cache.
+  private skillCache = new Map<string, SkillGroup[]>();
   private skillScanSeq = 0;
-  private lastSkillScanKey: string | null = null;
-  async refreshSkills(): Promise<void> {
+  private currentSkillKey: string | null = null;
+  private invalidateSkillCache(): void {
+    this.skillCache.clear();
+    this.currentSkillKey = null;
+  }
+  /**
+   * Discover skills for the current roots + active project. Cached per input so
+   * a re-scan with unchanged inputs (including a switch back to a visited
+   * project) is served without spawning `wsl.exe`; `force` (the ⟳ button)
+   * bypasses the cache to pick up skills added since. Driven lazily from the
+   * Skills panel, so nothing scans while it is hidden. A slow scan is dropped if
+   * a newer one already won.
+   */
+  async refreshSkills(force = false): Promise<void> {
     if (this.standalone) return;
-    // One discovery pass: the user's manual roots plus auto-detected host + WSL
-    // user skills and the active project's `.claude/skills`, grouped by root.
     const roots = $state.snapshot(this.data.skillRoots);
     const projectPath = this.activeProject?.path ?? null;
     const key = JSON.stringify([roots, projectPath]);
-    if (key === this.lastSkillScanKey) return; // same inputs → skip the WSL spawn
-    this.lastSkillScanKey = key;
+    if (!force) {
+      if (key === this.currentSkillKey) return; // already showing this pass
+      const cached = this.skillCache.get(key);
+      if (cached) {
+        this.currentSkillKey = key;
+        this.skillGroups = cached;
+        return;
+      }
+    }
     const seq = ++this.skillScanSeq;
     try {
       const { groups } = await discoverSkills(roots, projectPath);
       if (seq !== this.skillScanSeq) return; // a newer scan already won
+      this.skillCache.set(key, groups);
+      this.currentSkillKey = key;
       this.skillGroups = groups;
     } catch {
       if (seq !== this.skillScanSeq) return;
       this.skillGroups = [];
-      this.lastSkillScanKey = null; // let the next attempt retry after a failure
+      this.currentSkillKey = null;
     }
   }
 }
