@@ -2,6 +2,7 @@
   import { app } from '../state.svelte';
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
   import Modal from './Modal.svelte';
+  import type { SavedQuery } from '../types';
 
   // Digits available as Alt+<digit> query shortcuts (see App.svelte's handler).
   const HOTKEY_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -104,6 +105,34 @@
   function cancelEditQuery() {
     editingQueryId = null;
   }
+
+  // Assigning an Alt+digit that another query already owns silently stole it
+  // before; now we confirm first. `hotkeyConflict` holds the pending change
+  // while the modal is open (null = no prompt).
+  let hotkeyConflict = $state<{
+    qId: string;
+    qName: string;
+    digit: number;
+    otherName: string;
+  } | null>(null);
+  function changeHotkey(e: Event & { currentTarget: HTMLSelectElement }, q: SavedQuery) {
+    const digit = e.currentTarget.value ? Number(e.currentTarget.value) : null;
+    if (digit !== null) {
+      const other = app.data.queries.find((x) => x.id !== q.id && x.hotkey === digit);
+      if (other) {
+        // Revert the visible chip to its current value and ask before stealing.
+        e.currentTarget.value = q.hotkey === null ? '' : String(q.hotkey);
+        hotkeyConflict = { qId: q.id, qName: q.name, digit, otherName: other.name };
+        return;
+      }
+    }
+    app.setQueryHotkey(q.id, digit);
+  }
+  function confirmHotkeyReassign() {
+    if (hotkeyConflict) app.setQueryHotkey(hotkeyConflict.qId, hotkeyConflict.digit);
+    hotkeyConflict = null;
+  }
+
   let copiedId = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   async function copyText(id: string, text: string) {
@@ -275,19 +304,23 @@
               <div class="q-title">
                 <!-- Hotkey + insert-mode are managed inline as always-visible
                      chips (click to change); they're deliberately kept out of
-                     the hover action cluster so it stays narrow at min width. -->
-                <select
-                  class="chip-select"
-                  class:assigned={q.hotkey !== null}
-                  title="Keyboard shortcut — Alt+digit inserts this query"
-                  onchange={(e) =>
-                    app.setQueryHotkey(q.id, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
-                >
-                  <option value="" selected={q.hotkey === null}>단축키 없음</option>
-                  {#each HOTKEY_DIGITS as d}
-                    <option value={d} selected={q.hotkey === d}>Alt+{d}</option>
-                  {/each}
-                </select>
+                     the hover action cluster so it stays narrow at min width.
+                     {#key} re-creates the <select> whenever the bound hotkey
+                     changes (a steal, or a confirmed reassign) so its displayed
+                     value re-syncs even after we revert it by hand on a clash. -->
+                {#key q.hotkey}
+                  <select
+                    class="chip-select"
+                    class:assigned={q.hotkey !== null}
+                    title="Keyboard shortcut — Alt+digit inserts this query"
+                    onchange={(e) => changeHotkey(e, q)}
+                  >
+                    <option value="" selected={q.hotkey === null}>No hotkey</option>
+                    {#each HOTKEY_DIGITS as d}
+                      <option value={d} selected={q.hotkey === d}>Alt+{d}</option>
+                    {/each}
+                  </select>
+                {/key}
                 <button
                   class="chip-mode"
                   title={q.submit
@@ -367,6 +400,22 @@
         onkeydown={(e) => e.key === 'Enter' && addProject()}
       />
       <button class="btn" onclick={addProject}>Add project</button>
+    </div>
+  </Modal>
+{/if}
+
+{#if hotkeyConflict}
+  <Modal title="Reassign shortcut?" onclose={() => (hotkeyConflict = null)}>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <p style="margin:0;line-height:1.5">
+        <span class="kbd">Alt+{hotkeyConflict.digit}</span> is already assigned to
+        “{hotkeyConflict.otherName}”. Move it to “{hotkeyConflict.qName}”? The other query
+        will be left with no shortcut.
+      </p>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn" onclick={() => (hotkeyConflict = null)}>Cancel</button>
+        <button class="btn accent" onclick={confirmHotkeyReassign}>Reassign</button>
+      </div>
     </div>
   </Modal>
 {/if}

@@ -216,9 +216,10 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
   toolbar close button. Functional hover (see Do's & Don'ts).
 
 ### Controls
-- **`.btn`** / **`.btn.icon`** — flat button: `var(--panel-2)` fill, 1px `var(--border)`,
-  radius 5px. Hover sets `border-color: var(--accent)`. `.icon` is the compact square
-  variant used for the per-row action glyphs (✕ ✎ ➤ ⧉ …).
+- **`.btn`** / **`.btn.icon`** / **`.btn.accent`** — flat button: `var(--panel-2)` fill, 1px
+  `var(--border)`, radius 5px. Hover sets `border-color: var(--accent)`. `.icon` is the compact
+  square variant used for the per-row action glyphs (✕ ✎ ➤ ⧉ …); `.accent` is the emphasised
+  (primary) variant — accent border + text — for the confirming action in a dialog.
 - **`.tab`** / **`.tab.active`** — text-only panel tab; active state fills `var(--panel-2)`
   and switches text from `var(--muted)` to `var(--text)`.
 - **`.field`** (input/textarea) — full-width form input: `var(--bg)` fill, 1px border,
@@ -264,8 +265,10 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
 ### Badges & Chips
 - **`.chip-select`** — the always-visible hotkey chip on a saved query: a styled
   (`appearance:none`) `<select>` that opens the Alt+digit picker on click. Muted
-  ("단축키 없음") when unassigned; flips to the `var(--accent)` 12%-tint affordance once a
-  digit is bound (`.assigned`).
+  ("No hotkey") when unassigned; flips to the `var(--accent)` 12%-tint affordance once a
+  digit is bound (`.assigned`). Picking a digit another query owns opens a confirm modal
+  ("Reassign shortcut?") rather than silently stealing it. Its option rows are pinned to
+  `var(--panel-2)` so the open dropdown matches the chrome.
 - **`.chip-mode`** — the always-visible insert-mode chip on a saved query: a muted toggle
   button reading "↵ Submit" / "… Append" that flips the mode on click. Both chips live on the
   title line so the hover `.row-actions` cluster can stay narrow (no per-row selects),
@@ -358,7 +361,8 @@ is the user reshaping their workspace, all persisted to `app.data`:
   `.row-actions` reveal are how features become reachable — so they're documented as a
   deliberate deviation.
 - **No light mode and no theming hooks** beyond the `:root` variables — the system is
-  dark-only.
+  dark-only. `:root` also sets `color-scheme: dark` so native controls (the `<select>`
+  dropdown popup, scrollbars) render dark instead of the browser's default light chrome.
 - **Animation/transition timings** are minimal (`opacity 0.12s ease` on reveals) and not
   treated as a system; motion is out of scope.
 - **Profile colors** are user-editable data, not a fixed palette; the seeded values are

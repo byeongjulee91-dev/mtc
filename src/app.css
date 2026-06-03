@@ -10,6 +10,9 @@
   --left-w: 280px;
   --right-w: 320px;
 
+  /* Render native controls (select popups, scrollbars, etc.) dark — the app is
+     dark-only, so the browser's default light <select> dropdown is out of place. */
+  color-scheme: dark;
   font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -214,6 +217,15 @@ button {
   padding: 2px 6px;
   line-height: 1;
 }
+/* Emphasised (primary) button — outlined in the affordance accent for the
+   confirming action of a dialog (e.g. the reassign-shortcut prompt). */
+.btn.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn.accent:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 
 .list-row {
   display: flex;
@@ -345,7 +357,7 @@ button {
   -webkit-appearance: none;
 }
 /* An assigned shortcut reads as an accent affordance (matching the former hotkey
-   badge); unassigned stays muted ("단축키 없음"). */
+   badge); unassigned stays muted ("No hotkey"). */
 .chip-select.assigned {
   border-color: var(--accent);
   color: var(--accent);
@@ -354,6 +366,25 @@ button {
 .chip-select:hover,
 .chip-mode:hover {
   border-color: var(--accent);
+}
+/* Pin the native dropdown's option rows to the panel tone so the open popup
+   matches the chrome (paired with color-scheme:dark on :root) rather than
+   falling back to the browser's light list. */
+.chip-select option,
+.select-lg option {
+  background: var(--panel-2);
+  color: var(--text);
+}
+/* Inline keyboard-shortcut token used in dialog prose (the reassign prompt). */
+.kbd {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  white-space: nowrap;
 }
 /* Full-size select for the query compose form — matches the .btn height and the
    13px base, unlike the compact 10px chips used on saved rows. */
