@@ -40,6 +40,7 @@ async fn discover_skills(
     app: tauri::AppHandle,
     manual_roots: Vec<String>,
     project_path: Option<String>,
+    include_global: bool,
 ) -> Result<Discovery, String> {
     let home = app.path().home_dir().ok();
     let windows = cfg!(windows);
@@ -47,7 +48,13 @@ async fn discover_skills(
     // scan on the blocking pool so a project switch never freezes the UI
     // (synchronous Tauri commands run on the main thread).
     tauri::async_runtime::spawn_blocking(move || {
-        storage::discover_skills(home.as_deref(), &manual_roots, project_path.as_deref(), windows)
+        storage::discover_skills(
+            home.as_deref(),
+            &manual_roots,
+            project_path.as_deref(),
+            windows,
+            include_global,
+        )
     })
     .await
     .map_err(|e| format!("skill discovery failed: {e}"))

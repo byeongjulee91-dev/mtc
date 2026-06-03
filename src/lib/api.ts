@@ -26,16 +26,21 @@ export async function saveAppData(data: AppData): Promise<void> {
 // --- skills ---
 
 /**
- * Discover skills with zero manual configuration: the given manual roots plus
- * the host + WSL user skills dirs and the active project's `.claude/skills`.
- * WSL roots are scanned inside WSL so owner-only/symlinked skills resolve.
- * `projectPath` is the active project's path, or `null`.
+ * Discover skills. WSL roots are scanned inside WSL so owner-only/symlinked
+ * skills resolve. `projectPath` is the active project's path, or `null`.
+ *
+ * `includeGlobal` gates the project-independent roots (host + WSL user skills).
+ * The frontend splits discovery into two cached passes: the manual roots with
+ * `includeGlobal = true` (scanned once per session) and the project root with
+ * empty manual roots + `includeGlobal = false` (scanned once per project), then
+ * merges them — so switching projects re-scans only the project root.
  */
 export async function discoverSkills(
   manualRoots: string[],
   projectPath: string | null,
+  includeGlobal: boolean,
 ): Promise<SkillDiscovery> {
-  return invoke<SkillDiscovery>('discover_skills', { manualRoots, projectPath });
+  return invoke<SkillDiscovery>('discover_skills', { manualRoots, projectPath, includeGlobal });
 }
 
 // --- terminal sessions ---

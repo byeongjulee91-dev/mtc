@@ -432,11 +432,19 @@ fn push_wsl_root(groups: &mut Vec<(Option<String>, Vec<String>)>, distro: Option
 ///   4. the active project's `.claude/skills` (WSL-translated when the project
 ///      path is Linux-style, native otherwise).
 /// Returns the deduped/sorted skills and the list of roots consulted.
+///
+/// `include_global` gates the project-independent roots (2 + 3) and is paired
+/// with the manual roots so the caller can split discovery: pass the manual
+/// roots with `include_global = true` to scan the user/global skills once, and
+/// pass empty manual roots with `include_global = false` and a `project_path`
+/// to scan only that project's skills. The frontend caches the two passes
+/// separately so switching projects re-scans only the project root.
 pub fn discover_skills(
     host_home: Option<&Path>,
     manual_roots: &[String],
     project_path: Option<&str>,
     windows: bool,
+    include_global: bool,
 ) -> Discovery {
     let project = project_path.map(str::trim).filter(|p| !p.is_empty());
 
@@ -456,13 +464,15 @@ pub fn discover_skills(
         }
     }
 
-    // 2. Host user skills.
-    if let Some(home) = host_home {
-        native_roots.push(skills_dir(home));
+    // 2. Host user skills (project-independent, gated by include_global).
+    if include_global {
+        if let Some(home) = host_home {
+            native_roots.push(skills_dir(home));
+        }
     }
 
-    // 3. WSL default-distro user skills (Windows only).
-    if windows {
+    // 3. WSL default-distro user skills (Windows only; project-independent).
+    if include_global && windows {
         push_wsl_root(&mut wsl_groups, None, "$HOME/.claude/skills".to_string());
     }
 
@@ -730,6 +740,7 @@ mod tests {
             &[],
             Some(&proj.to_string_lossy().to_string()),
             false,
+            true,
         );
         let names: Vec<&str> = d
             .groups
@@ -740,6 +751,24 @@ mod tests {
         assert!(names.contains(&"p"), "active-project skills detected");
         // Two distinct roots → two groups.
         assert_eq!(d.groups.len(), 2);
+
+        // include_global = false scans only the project root — the host home
+        // skills are skipped, which is how the frontend splits the two passes.
+        let only_project = discover_skills(
+            Some(&home),
+            &[],
+            Some(&proj.to_string_lossy().to_string()),
+            false,
+            false,
+        );
+        let names: Vec<&str> = only_project
+            .groups
+            .iter()
+            .flat_map(|g| g.skills.iter().map(|s| s.name.as_str()))
+            .collect();
+        assert_eq!(only_project.groups.len(), 1, "only the project root");
+        assert!(names.contains(&"p"), "project skill present");
+        assert!(!names.contains(&"h"), "host home skill excluded");
 
         fs::remove_dir_all(&base).ok();
     }

@@ -287,61 +287,114 @@ class AppState {
       this.data.skillRoots.push(path);
       this.scheduleSave();
       this.invalidateSkillCache();
-      void this.refreshSkills(true);
+      void this.refreshSkills();
     }
   }
   removeSkillRoot(path: string): void {
     this.data.skillRoots = this.data.skillRoots.filter((x) => x !== path);
     this.scheduleSave();
     this.invalidateSkillCache();
-    void this.refreshSkills(true);
+    void this.refreshSkills();
   }
 
-  // Skill discovery spawns `wsl.exe`, so results are cached per (roots, project)
-  // for the session — switching back to a visited project then costs no spawn.
-  // The roots span every project, so editing them clears the whole cache.
-  private skillCache = new Map<string, SkillGroup[]>();
+  // Discovery spawns `wsl.exe`, so it is split into two cached passes:
+  //  - global: manual roots + host/WSL user skills. Project-independent, so it
+  //    is scanned once per root set and reused across every project switch.
+  //  - project: the active project's `.claude/skills`, scanned once per project.
+  // The displayed list is their merge. Editing the manual roots invalidates the
+  // global pass; the per-project passes don't depend on it and stay cached.
   private skillScanSeq = 0;
   private currentSkillKey: string | null = null;
+  private globalSkillKey: string | null = null;
+  private globalSkillGroups: SkillGroup[] | null = null;
+  private projectSkillCache = new Map<string, SkillGroup[]>();
   private invalidateSkillCache(): void {
-    this.skillCache.clear();
+    this.globalSkillKey = null;
+    this.globalSkillGroups = null;
     this.currentSkillKey = null;
+    // The per-project passes don't depend on the manual roots, so they stay.
   }
   /**
-   * Discover skills for the current roots + active project. Cached per input so
-   * a re-scan with unchanged inputs (including a switch back to a visited
-   * project) is served without spawning `wsl.exe`; `force` (the ⟳ button)
-   * bypasses the cache to pick up skills added since. Driven lazily from the
-   * Skills panel, so nothing scans while it is hidden. A slow scan is dropped if
-   * a newer one already won.
+   * Discover skills for the current roots + active project and show their merge.
+   * The global pass (manual roots + host/WSL user skills) is scanned once per
+   * session and reused across switches; the project pass is scanned once per
+   * project. Both are cached, so switching back to a visited project spawns no
+   * `wsl.exe` and switching to a new one re-scans only the project root. `force`
+   * (the ⟳ button) re-scans both. Driven lazily from the Skills panel, so
+   * nothing scans while it is hidden; a slow scan is dropped if a newer one won.
    */
   async refreshSkills(force = false): Promise<void> {
     if (this.standalone) return;
     const roots = $state.snapshot(this.data.skillRoots);
     const projectPath = this.activeProject?.path ?? null;
-    const key = JSON.stringify([roots, projectPath]);
-    if (!force) {
-      if (key === this.currentSkillKey) return; // already showing this pass
-      const cached = this.skillCache.get(key);
-      if (cached) {
-        this.currentSkillKey = key;
-        this.skillGroups = cached;
-        return;
-      }
-    }
+    const globalKey = JSON.stringify(roots);
+    const displayKey = globalKey + ' ' + (projectPath ?? '');
+    if (!force && displayKey === this.currentSkillKey) return; // already shown
+
     const seq = ++this.skillScanSeq;
     try {
-      const { groups } = await discoverSkills(roots, projectPath);
-      if (seq !== this.skillScanSeq) return; // a newer scan already won
-      this.skillCache.set(key, groups);
-      this.currentSkillKey = key;
-      this.skillGroups = groups;
+      // Global pass — reused unless the manual roots changed (or forced).
+      if (force || this.globalSkillGroups === null || this.globalSkillKey !== globalKey) {
+        const { groups } = await discoverSkills(roots, null, true);
+        if (seq !== this.skillScanSeq) return; // a newer scan already won
+        this.globalSkillGroups = groups;
+        this.globalSkillKey = globalKey;
+      }
+      // Project pass — cached per project path; only the project root is scanned.
+      let projectGroups: SkillGroup[] = [];
+      if (projectPath) {
+        const cached = force ? undefined : this.projectSkillCache.get(projectPath);
+        if (cached) {
+          projectGroups = cached;
+        } else {
+          const { groups } = await discoverSkills([], projectPath, false);
+          if (seq !== this.skillScanSeq) return;
+          projectGroups = groups;
+          this.projectSkillCache.set(projectPath, groups);
+        }
+      }
+      if (seq !== this.skillScanSeq) return;
+      this.skillGroups = mergeSkillGroups(this.globalSkillGroups ?? [], projectGroups);
+      this.currentSkillKey = displayKey;
     } catch {
       if (seq !== this.skillScanSeq) return;
       this.skillGroups = [];
       this.currentSkillKey = null;
     }
   }
+}
+
+/**
+ * Merge two finalized skill-group lists (global + project): combine groups that
+ * share a root, dedup skills by path (first occurrence wins), sort each group's
+ * skills by name, and surface non-empty groups first. Mirrors the backend's
+ * per-call finalize across the two cached passes.
+ */
+function mergeSkillGroups(global: SkillGroup[], project: SkillGroup[]): SkillGroup[] {
+  const byRoot = new Map<string, SkillGroup>();
+  const order: string[] = [];
+  for (const g of [...global, ...project]) {
+    const existing = byRoot.get(g.root);
+    if (existing) existing.skills = [...existing.skills, ...g.skills];
+    else {
+      byRoot.set(g.root, { root: g.root, kind: g.kind, skills: [...g.skills] });
+      order.push(g.root);
+    }
+  }
+  const seen = new Set<string>();
+  const groups = order.map((root) => {
+    const g = byRoot.get(root)!;
+    const skills = g.skills
+      .filter((s) => {
+        if (seen.has(s.path)) return false;
+        seen.add(s.path);
+        return true;
+      })
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    return { root: g.root, kind: g.kind, skills };
+  });
+  // Non-empty groups first; stable sort keeps each partition's order.
+  return groups.sort((a, b) => Number(a.skills.length === 0) - Number(b.skills.length === 0));
 }
 
 export const app = new AppState();
