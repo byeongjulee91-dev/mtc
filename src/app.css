@@ -547,3 +547,48 @@ textarea.field {
   gap: 10px;
   color: var(--muted);
 }
+
+/* Modal — a centered dialog over a full-window scrim. Forms that used to sit
+   inline in a side panel (e.g. add-project) are lifted here so the panels keep
+   their space for lists. See Modal.svelte. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(2px);
+}
+.modal {
+  width: min(420px, 100%);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.modal-title {
+  flex: 1;
+}
+.modal-body {
+  padding: 12px;
+  overflow-y: auto;
+}

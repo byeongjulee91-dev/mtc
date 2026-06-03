@@ -1,13 +1,22 @@
 <script lang="ts">
   import { app } from '../state.svelte';
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
+  import Modal from './Modal.svelte';
 
   // Digits available as Alt+<digit> query shortcuts (see App.svelte's handler).
   const HOTKEY_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   let tab = $state<'project' | 'query'>('project');
+  // The add-project form lives in a modal (opened by the panel-head "+") so the
+  // panel body stays a clean project list.
+  let showAddProject = $state(false);
   let projectPath = $state('');
   let projectName = $state('');
+
+  // Focus the first field when the add-project modal opens.
+  function autofocus(node: HTMLElement) {
+    node.focus();
+  }
   let todoText = $state('');
   let queryName = $state('');
   let queryText = $state('');
@@ -20,6 +29,7 @@
     if (p) {
       projectPath = '';
       projectName = '';
+      showAddProject = false;
     }
   }
   function addTodo() {
@@ -112,28 +122,17 @@
   <button class="tab" class:active={tab === 'project'} onclick={() => (tab = 'project')}>Project</button>
   <button class="tab" class:active={tab === 'query'} onclick={() => (tab = 'query')}>Query</button>
   <span style="flex:1"></span>
+  {#if tab === 'project'}
+    <button class="btn icon" title="Add project" onclick={() => (showAddProject = true)}>+</button>
+  {/if}
   <button class="btn icon" title="Hide panel" onclick={() => app.toggleLeftPanel()}>‹</button>
 </div>
 
 <div class="panel-body">
   {#if tab === 'project'}
-    <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
-      <input
-        class="field"
-        placeholder="Path, e.g. /mnt/c/Users/me/project"
-        bind:value={projectPath}
-        onkeydown={(e) => e.key === 'Enter' && addProject()}
-      />
-      <input
-        class="field"
-        placeholder="Name (optional)"
-        bind:value={projectName}
-        onkeydown={(e) => e.key === 'Enter' && addProject()}
-      />
-      <button class="btn" onclick={addProject}>Add project</button>
-    </div>
-    <div class="empty" style="padding-top:0">
+    <div class="empty">
       Select a project to scope its todos and open new sessions in its directory.
+      Use <strong>+</strong> above to add one.
     </div>
     {#if app.data.projects.length === 0}
       <div class="empty">No projects yet.</div>
@@ -336,6 +335,27 @@
     {/if}
   {/if}
 </div>
+
+{#if showAddProject}
+  <Modal title="Add project" onclose={() => (showAddProject = false)}>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <input
+        class="field"
+        placeholder="Path, e.g. /mnt/c/Users/me/project"
+        bind:value={projectPath}
+        use:autofocus
+        onkeydown={(e) => e.key === 'Enter' && addProject()}
+      />
+      <input
+        class="field"
+        placeholder="Name (optional)"
+        bind:value={projectName}
+        onkeydown={(e) => e.key === 'Enter' && addProject()}
+      />
+      <button class="btn" onclick={addProject}>Add project</button>
+    </div>
+  </Modal>
+{/if}
 
 <style>
   /* Count of warm (live) terminal sessions a project currently holds. */
