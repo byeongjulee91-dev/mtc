@@ -152,6 +152,28 @@ body,
   min-height: 0;
 }
 
+/* Left panel scrollbar — same treatment as the terminal viewport (thin,
+   border-colored thumb that blends into the container), themed to the panel
+   background instead of the terminal's black. */
+.panel.left .panel-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--panel);
+}
+.panel.left .panel-body::-webkit-scrollbar {
+  width: 10px;
+}
+.panel.left .panel-body::-webkit-scrollbar-track {
+  background: var(--panel);
+}
+.panel.left .panel-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid var(--panel);
+  border-radius: 6px;
+}
+.panel.left .panel-body::-webkit-scrollbar-thumb:hover {
+  background: #3a4350;
+}
+
 .tab {
   background: none;
   border: none;
