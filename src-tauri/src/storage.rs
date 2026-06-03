@@ -214,7 +214,9 @@ fn scan_dir(dir: &Path, depth: usize, out: &mut Vec<Skill>) {
 }
 
 /// Discover skills across the given host-filesystem roots (deduped by path,
-/// sorted by name).
+/// sorted by name). Test-only: production scanning goes through
+/// [`discover_skills`] / [`finalize_groups`], which group results per root.
+#[cfg(test)]
 pub fn scan_skills(roots: &[String]) -> Vec<Skill> {
     let mut skills: Vec<Skill> = Vec::new();
     for root in roots {
@@ -228,7 +230,9 @@ pub fn scan_skills(roots: &[String]) -> Vec<Skill> {
 
 /// Dedup by path, drop skills nested inside another skill's directory, and sort
 /// by name. The nesting prune mirrors `scan_dir`'s leaf rule for the WSL side,
-/// where `find` enumerates every `SKILL.md` without pruning.
+/// where `find` enumerates every `SKILL.md` without pruning. Test-only helper
+/// (see [`scan_skills`]); the flat variant the grouped scanner superseded.
+#[cfg(test)]
 fn finalize(skills: Vec<Skill>) -> Vec<Skill> {
     let mut seen = std::collections::HashSet::new();
     let unique: Vec<Skill> = skills.into_iter().filter(|s| seen.insert(s.path.clone())).collect();
