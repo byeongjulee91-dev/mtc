@@ -73,7 +73,7 @@ body,
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 14px;
+  width: 20px;
   z-index: 6;
 }
 .reveal-zone.left {
@@ -83,17 +83,21 @@ body,
   right: 0;
 }
 
-/* Reveal tab — hidden until the pointer enters the zone (or it's focused). */
+/* Reveal tab — hidden until the pointer enters the zone (or it's focused).
+   Sits at the vertical middle of the window (a drawer-handle position) so it
+   never collides with the toolbar's close button in the top-right corner. */
 .reveal-tab {
   position: absolute;
-  top: 8px;
-  width: 18px;
-  height: 38px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 64px;
   padding: 0;
   border: 1px solid var(--border);
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
+  font-size: 16px;
   opacity: 0;
   transition: opacity 0.12s ease;
 }

@@ -132,7 +132,8 @@ The system has no `{typography.*}` token file. The sizes actually in use:
 - **No formal token scale.** Values are literal px. The recurring rhythm: **1px** (grid
   gaps), **2px** (tight icon padding, pane-head), **6px** (the default flex `gap` and
   list-row gap), **8px** (panel/content padding), **12px** (empty-state padding). Larger
-  values (24/28/38px) appear only as fixed control dimensions.
+  values (20/24/28/64px) appear only as fixed control dimensions (e.g. the reveal tab's
+  24×64px target and its 20px hover-zone).
 - **List rows:** `padding: 4px 8px`, `gap: 6px`.
 - **Panel / section heads:** `padding: 6px 8px`.
 - **Content blocks** (add-project, add-todo, query editor): `padding: 8px`, `gap: 6px`.
@@ -204,9 +205,10 @@ the work surface." Terminal panes stay at 0 so the work area reads as a precise 
 - **`.resize-handle`** (`.left` / `.right`) — a 7px-wide invisible strip over the gap
   between a panel and the center; drag to resize, double-click to collapse. Lights up
   `var(--border-focus)` at 0.5 opacity on hover/while dragging.
-- **`.reveal-zone`** + **`.reveal-tab`** — when a panel is collapsed, a 14px edge hover-zone
-  fades in an 18×38px tab (`opacity 0 → 1`) to bring the panel back. Functional hover (see
-  Do's & Don'ts).
+- **`.reveal-zone`** + **`.reveal-tab`** — when a panel is collapsed, a 20px edge hover-zone
+  fades in a 24×64px tab (`opacity 0 → 1`) to bring the panel back. The tab is pinned to the
+  **vertical middle** of the window (drawer-handle position) so it clears the top-right
+  toolbar close button. Functional hover (see Do's & Don'ts).
 
 ### Controls
 - **`.btn`** / **`.btn.icon`** — flat button: `var(--panel-2)` fill, 1px `var(--border)`,
