@@ -145,19 +145,26 @@
     const rt = runtimes.get(bucketKey);
     bus.hasFocus = !!(rt && rt.tree);
   });
-  // Live (warm) and busy session counts per bucket, for the left panel's badge
-  // + park. Busy is a subset of live; the panel derives idle = live − busy.
+  // Live (warm) session counts per bucket, for the left panel's badge + park.
+  // Recomputed only when a bucket's pane count changes.
   $effect(() => {
     const live: Record<string, number> = {};
-    const busy: Record<string, number> = {};
     for (const [key, rt] of runtimes) {
       const n = rt.paneCount;
-      if (n > 0) {
-        live[key] = n;
-        busy[key] = rt.busyCount;
-      }
+      if (n > 0) live[key] = n;
     }
     bus.liveCounts = live;
+  });
+  // Busy session counts per bucket (a subset of live; the panel derives idle =
+  // live − busy). Kept in its own effect so a pane flipping busy↔idle doesn't
+  // re-run the tree-walking live recount above or re-render badges whose total
+  // is unchanged — only the busy figures move.
+  $effect(() => {
+    const busy: Record<string, number> = {};
+    for (const [key, rt] of runtimes) {
+      const b = rt.busyCount;
+      if (b > 0) busy[key] = b;
+    }
     bus.busyCounts = busy;
   });
 

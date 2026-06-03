@@ -58,14 +58,28 @@
   const IDLE_MS = 1200;
   let busy = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  // Last grid size pushed to the PTY. Re-showing a pane at the same size (a
+  // project switch) would otherwise resize it anyway, forcing the TUI to repaint
+  // — so we skip no-op resizes (and the spurious IPC + repaint they cause).
+  let lastCols = 0;
+  let lastRows = 0;
+  // Until this timestamp, PTY output is treated as a resize / visibility repaint
+  // (a TUI redrawing itself to a new grid, or on focus) rather than the session
+  // doing work — so switching projects or dragging a divider never flips an idle
+  // session to "busy". Opened by pushResize() and the becomes-visible effect.
+  const RESIZE_QUIET_MS = 500;
+  let quietUntil = 0;
 
   function setBusy(next: boolean) {
     if (busy === next) return;
     busy = next;
     onbusy?.(next);
   }
-  // Called on every chunk of PTY output: (re)arm the quiet timer and mark busy.
+  // Called on every chunk of PTY output: mark busy and (re)arm the idle timer —
+  // unless we're in a post-resize quiet window, where the output is just the TUI
+  // repainting itself (e.g. after a project switch), not the session working.
   function noteOutput() {
+    if (Date.now() < quietUntil) return;
     setBusy(true);
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => setBusy(false), IDLE_MS);
@@ -172,11 +186,14 @@
   // lines; re-pinning to the bottom keeps the prompt in view on return.
   $effect(() => {
     if (!visible || !ready || !term) return;
+    // Becoming visible re-shows (and may refocus) this pane, which makes the TUI
+    // repaint to the now-measurable grid; treat that as quiet so a mere project
+    // switch never reads as the session working.
+    quietUntil = Date.now() + RESIZE_QUIET_MS;
     let cancelled = false;
     const raf = requestAnimationFrame(async () => {
       if (cancelled || !term) return;
-      safeFit();
-      if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
+      await pushResize();
       if (!cancelled) term?.scrollToBottom();
     });
     return () => {
@@ -244,8 +261,7 @@
     });
 
     resizeObs = new ResizeObserver(() => {
-      safeFit();
-      if (term && sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+      void pushResize();
     });
     resizeObs.observe(host);
   });
@@ -258,6 +274,22 @@
     }
   }
 
+  // Re-fit to the host and push the new size to the PTY, but only when it
+  // actually changed — a no-op resize on a project switch just makes the TUI
+  // repaint (which would read as false activity) and costs a needless SIGWINCH.
+  // A real resize opens a brief quiet window so the repaint it triggers isn't
+  // counted as work. Awaits the resize so callers can re-pin the viewport after.
+  async function pushResize(): Promise<void> {
+    if (!term) return;
+    safeFit();
+    if (sessionId === null) return;
+    if (term.cols === lastCols && term.rows === lastRows) return;
+    lastCols = term.cols;
+    lastRows = term.rows;
+    quietUntil = Date.now() + RESIZE_QUIET_MS;
+    await resizeSession(sessionId, term.cols, term.rows);
+  }
+
   // Font size is shared across panes via app state. When it changes (from this
   // pane or another), apply it here, re-fit so the grid stays aligned, then push
   // the new cols/rows down to the PTY.
@@ -266,8 +298,7 @@
     if (!term || !ready) return;
     if (term.options.fontSize === size) return;
     term.options.fontSize = size;
-    safeFit();
-    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+    void pushResize();
   });
 
   // Ctrl + wheel zooms the terminal font. Mutating shared state triggers the
