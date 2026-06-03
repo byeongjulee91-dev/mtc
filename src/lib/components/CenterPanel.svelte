@@ -14,6 +14,16 @@
   // active bucket is shown. The persisted layout seeds a runtime on first visit.
   const runtimes = new SvelteMap<string, PaneRuntime>();
 
+  // Cap on how many buckets may hold live PTY sessions at once (active included).
+  // When a switch or a freshly-spawned pane pushes the count past this, the
+  // least-recently-active live bucket is parked (its PTYs closed) so warm
+  // sessions can't accumulate unboundedly as you hop between projects. The active
+  // bucket is never evicted; empty buckets hold no PTYs and don't count. `mru`
+  // records visit order (most-recent first) — visit *history*, so it is plain
+  // (non-reactive) and is updated imperatively on each switch.
+  const MAX_WARM_BUCKETS = 4;
+  const mru: string[] = [];
+
   // The active bucket: the selected project's id, or the Unfiled sentinel.
   let bucketKey = $derived(app.data.activeProjectId ?? UNFILED_KEY);
 
@@ -72,15 +82,46 @@
     return rt;
   }
 
+  // Record a bucket visit as most-recent in the MRU order (drives LRU eviction).
+  function noteVisit(key: string): void {
+    const i = mru.indexOf(key);
+    if (i !== -1) mru.splice(i, 1);
+    mru.unshift(key);
+  }
+
+  // Park the least-recently-active live buckets until at most MAX_WARM_BUCKETS
+  // hold sessions. Empty buckets are free (no PTYs) and don't count; the active
+  // bucket is never parked. Deleting a runtime unmounts its panes → onDestroy
+  // closes the PTYs, killing that project's warm terminal processes.
+  function evictBeyondCap(): void {
+    const live = [...runtimes].filter(([, rt]) => rt.paneCount > 0).map(([k]) => k);
+    let over = live.length - MAX_WARM_BUCKETS;
+    if (over <= 0) return;
+    const rank = (k: string): number => {
+      const i = mru.indexOf(k);
+      return i === -1 ? Infinity : i; // never-visited → most stale
+    };
+    const lruFirst = live.filter((k) => k !== bucketKey).sort((a, b) => rank(b) - rank(a));
+    for (const key of lruFirst) {
+      if (over <= 0) break;
+      runtimes.delete(key);
+      over--;
+    }
+  }
+
   // Lazy warm / restore: once persisted data has loaded, ensure the active
   // bucket has a runtime — built from its saved layout on first visit (the
   // restore-on-launch path). Gating on `app.loaded` is essential: `app.init()`
   // is async, so before it resolves `app.data` is the default (empty) blob;
   // creating a runtime then would shadow the real persisted layout forever
-  // (especially the Unfiled bucket, since activeProjectId starts null).
+  // (especially the Unfiled bucket, since activeProjectId starts null). Recording
+  // the visit and enforcing the warm-bucket cap also live here so they react to
+  // both project switches and pane-count changes.
   $effect(() => {
     if (!app.loaded) return;
     ensureRuntime(bucketKey);
+    noteVisit(bucketKey);
+    evictBeyondCap();
   });
 
   // Prune runtimes whose project was deleted — unmounting their panes closes
