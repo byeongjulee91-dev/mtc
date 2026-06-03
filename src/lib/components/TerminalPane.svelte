@@ -131,12 +131,27 @@
   });
 
   // Re-fit when this pane's project becomes active again after being hidden:
-  // xterm can't measure under display:none, so its dimensions are stale. (The
-  // ResizeObserver also fires on the 0→size change, but this is deterministic.)
+  // xterm can't measure under display:none, so its dimensions are stale. Defer a
+  // frame so the just-shown pane has been laid out — and so we coalesce with the
+  // ResizeObserver's 0→size fire into a single resize instead of racing it — then
+  // fit, push the new size down to the PTY, and pin the viewport to the bottom.
+  // xterm resizes synchronously while the SIGWINCH (resizeSession) is async, so a
+  // session that is still streaming can otherwise redraw against the new grid
+  // before the child learns the new size, stranding its input box above stale
+  // lines; re-pinning to the bottom keeps the prompt in view on return.
   $effect(() => {
     if (!visible || !ready || !term) return;
-    safeFit();
-    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+    let cancelled = false;
+    const raf = requestAnimationFrame(async () => {
+      if (cancelled || !term) return;
+      safeFit();
+      if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
+      if (!cancelled) term?.scrollToBottom();
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
   });
 
   onMount(async () => {
