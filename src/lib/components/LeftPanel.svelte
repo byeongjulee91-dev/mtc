@@ -18,6 +18,35 @@
   function autofocus(node: HTMLElement) {
     node.focus();
   }
+  // Focus an inline edit field and select its contents so the user can retype
+  // or extend it straight away (used when entering edit mode).
+  function focusSelect(node: HTMLInputElement | HTMLTextAreaElement) {
+    node.focus();
+    node.select();
+  }
+  // Svelte action: grow an edit textarea to fit its content (height set inline,
+  // capped by CSS) so multi-line todos/queries are fully visible instead of
+  // being crammed into a fixed-height box.
+  function autogrow(node: HTMLTextAreaElement) {
+    const grow = () => {
+      node.style.height = 'auto';
+      node.style.height = `${node.scrollHeight}px`;
+    };
+    grow();
+    node.addEventListener('input', grow);
+    return { destroy: () => node.removeEventListener('input', grow) };
+  }
+  // Shared edit-field key handling: Escape cancels, Ctrl/Cmd+Enter saves; plain
+  // Enter inserts a newline so multi-line items can be edited in place.
+  function editKeydown(e: KeyboardEvent, save: () => void, cancel: () => void) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancel();
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      save();
+    }
+  }
   let todoText = $state('');
   let queryName = $state('');
   let queryText = $state('');
@@ -212,16 +241,16 @@
         {#each app.activeProject.todos as t (t.id)}
           {#if editingTodoId === t.id}
             <div class="list-row top">
-              <input
-                class="field grow"
+              <textarea
+                class="field edit-area grow-flex"
+                rows="1"
                 bind:value={editTodoText}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') saveEditTodo();
-                  else if (e.key === 'Escape') cancelEditTodo();
-                }}
-              />
-              <button class="btn icon" title="Save" onclick={saveEditTodo}>✓</button>
-              <button class="btn icon" title="Cancel" onclick={cancelEditTodo}>✕</button>
+                use:focusSelect
+                use:autogrow
+                onkeydown={(e) => editKeydown(e, saveEditTodo, cancelEditTodo)}
+              ></textarea>
+              <button class="btn icon" title="Save (Ctrl+Enter)" onclick={saveEditTodo}>✓</button>
+              <button class="btn icon" title="Cancel (Esc)" onclick={cancelEditTodo}>✕</button>
             </div>
           {:else}
             <div class="list-row top row-float">
@@ -231,9 +260,10 @@
                 class:done={t.done}
                 draggable="true"
                 role="presentation"
+                ondblclick={() => startEditTodo(t.id, t.text)}
                 ondragstart={(e) => startDrag(e, t.text)}
                 ondragend={() => (bus.dragText = null)}
-                title="Drag onto a terminal to insert">{t.text}</span
+                title="Double-click to edit · drag onto a terminal to insert">{t.text}</span
               >
               <div class="row-actions">
                 <button
@@ -278,16 +308,24 @@
       {#each app.data.queries as q (q.id)}
         {#if editingQueryId === q.id}
           <div class="list-row top" style="flex-direction:column;align-items:stretch;gap:6px">
-            <input class="field" placeholder="Query name" bind:value={editQueryName} />
-            <textarea
+            <input
               class="field"
-              rows="2"
+              placeholder="Query name"
+              bind:value={editQueryName}
+              use:focusSelect
+              onkeydown={(e) => editKeydown(e, saveEditQuery, cancelEditQuery)}
+            />
+            <textarea
+              class="field edit-area"
+              rows="1"
               placeholder="Query text sent to the focused terminal"
               bind:value={editQueryText}
+              use:autogrow
+              onkeydown={(e) => editKeydown(e, saveEditQuery, cancelEditQuery)}
             ></textarea>
             <div style="display:flex;gap:6px;justify-content:flex-end">
-              <button class="btn icon" title="Save" onclick={saveEditQuery}>✓</button>
-              <button class="btn icon" title="Cancel" onclick={cancelEditQuery}>✕</button>
+              <button class="btn icon" title="Save (Ctrl+Enter)" onclick={saveEditQuery}>✓</button>
+              <button class="btn icon" title="Cancel (Esc)" onclick={cancelEditQuery}>✕</button>
             </div>
           </div>
         {:else}
@@ -325,9 +363,10 @@
                   class="q-name"
                   draggable="true"
                   role="presentation"
+                  ondblclick={() => startEditQuery(q.id, q.name, q.text)}
                   ondragstart={(e) => startDrag(e, q.text)}
                   ondragend={() => (bus.dragText = null)}
-                  title="Drag onto a terminal to insert">{q.name}</span
+                  title="Double-click to edit · drag onto a terminal to insert">{q.name}</span
                 >
               </div>
               {#if q.text.trim() !== q.name.trim()}
@@ -335,6 +374,7 @@
                   class="muted query-text"
                   draggable="true"
                   role="presentation"
+                  ondblclick={() => startEditQuery(q.id, q.name, q.text)}
                   ondragstart={(e) => startDrag(e, q.text)}
                   ondragend={() => (bus.dragText = null)}
                   title={q.text}
@@ -413,6 +453,25 @@
 {/if}
 
 <style>
+  /* Inline edit textarea (todo/query): the height is set to fit the content by
+     the `autogrow` action, capped here so a very long item scrolls inside the
+     box instead of pushing the whole panel. Wraps normally (unlike the .grow
+     display span, which truncates to one line). */
+  .edit-area {
+    resize: none;
+    min-height: 30px;
+    max-height: 40vh;
+    overflow-y: auto;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  /* Share the row width with the Save/Cancel buttons (the todo edit row is a
+     horizontal flex; .grow can't be reused here as it forces nowrap). */
+  .grow-flex {
+    flex: 1;
+    min-width: 0;
+  }
+
   /* Count of warm (live) terminal sessions a project currently holds. */
   .live-badge {
     flex: 0 0 auto;
