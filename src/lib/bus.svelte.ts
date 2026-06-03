@@ -50,6 +50,12 @@ class Bus {
   /** Whether at least one terminal pane is open in the active workspace. */
   hasFocus = $state(false);
   /**
+   * The focused pane's terminal backend (`'wsl'` | `'powershell'` | `'cmd'`), or
+   * `null` when no pane is focused. The skills panel reads it to gate inserts: a
+   * WSL-discovered skill can't be used by a native PowerShell/cmd `claude`.
+   */
+  focusedShell = $state<'wsl' | 'powershell' | 'cmd' | null>(null);
+  /**
    * Text currently being dragged from a side panel (a todo/query), or `null`
    * when no such drag is in progress. Terminal panes read this to accept the
    * drop and insert the text. We keep it here rather than relying solely on

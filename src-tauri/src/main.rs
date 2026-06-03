@@ -10,7 +10,7 @@ use tauri::{ipc::Channel, Manager};
 
 use profile::Profile;
 use pty::{PtyManager, PtyMessage};
-use storage::Skill;
+use storage::Discovery;
 
 #[tauri::command]
 fn load_app_data(app: tauri::AppHandle) -> Result<Value, String> {
@@ -30,25 +30,24 @@ fn save_app_data(app: tauri::AppHandle, data: Value) -> Result<(), String> {
     storage::save_app_data(&dir, &data)
 }
 
+/// Discover skills with zero manual configuration: the user's manual roots plus
+/// the host + WSL user skills dirs and the active project's `.claude/skills`.
+/// WSL roots are scanned inside WSL (so owner-only/symlinked skills resolve).
+/// Returns the merged skill list and the roots consulted. `project_path` is the
+/// active project's path, or `None`.
 #[tauri::command]
-fn scan_skills(app: tauri::AppHandle, roots: Vec<String>) -> Vec<Skill> {
-    // If no roots configured, default to the host's ~/.claude/skills.
-    let mut roots = roots;
-    if roots.iter().all(|r| r.trim().is_empty()) {
-        if let Ok(home) = app.path().home_dir() {
-            roots.push(home.join(".claude").join("skills").to_string_lossy().to_string());
-        }
-    }
-    storage::scan_skills(&roots)
-}
-
-/// Auto-detected skill roots (host + WSL user skills, plus the active project's
-/// `.claude/skills`) that the frontend unions with the user's manual roots
-/// before scanning. `project_path` is the active project's path, or `None`.
-#[tauri::command]
-fn detect_skill_roots(app: tauri::AppHandle, project_path: Option<String>) -> Vec<String> {
+fn discover_skills(
+    app: tauri::AppHandle,
+    manual_roots: Vec<String>,
+    project_path: Option<String>,
+) -> Discovery {
     let home = app.path().home_dir().ok();
-    storage::auto_skill_roots(home.as_deref(), project_path.as_deref(), cfg!(windows))
+    storage::discover_skills(
+        home.as_deref(),
+        &manual_roots,
+        project_path.as_deref(),
+        cfg!(windows),
+    )
 }
 
 #[tauri::command]
@@ -90,8 +89,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             load_app_data,
             save_app_data,
-            scan_skills,
-            detect_skill_roots,
+            discover_skills,
             create_session,
             write_session,
             resize_session,

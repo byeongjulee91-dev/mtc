@@ -1,6 +1,6 @@
-import type { AppData, LayoutNode, Profile, Skill, Todo, SavedQuery, Project } from './types';
+import type { AppData, LayoutNode, Profile, Skill, SkillGroup, Todo, SavedQuery, Project } from './types';
 import { DEFAULT_FONT_SIZE, UNFILED_KEY, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
-import { loadAppData, saveAppData, scanSkills, detectSkillRoots } from './api';
+import { loadAppData, saveAppData, discoverSkills } from './api';
 
 /**
  * Reactive application state (Svelte 5 runes). Holds persisted data (projects
@@ -9,9 +9,8 @@ import { loadAppData, saveAppData, scanSkills, detectSkillRoots } from './api';
  */
 class AppState {
   data = $state<AppData>(defaultAppData());
-  skills = $state<Skill[]>([]);
-  /** Auto-detected skill roots (read-only), shown alongside the manual ones. */
-  detectedSkillRoots = $state<string[]>([]);
+  /** Discovered skills, grouped by the root they were found under. */
+  skillGroups = $state<SkillGroup[]>([]);
   loaded = $state(false);
   /** True when running outside Tauri (e.g. `vite` in a plain browser). */
   standalone = $state(false);
@@ -295,19 +294,16 @@ class AppState {
   }
   async refreshSkills(): Promise<void> {
     if (this.standalone) return;
-    // Auto-detect user (host + WSL) and active-project skill roots, then union
-    // them with the user's manual roots before scanning.
-    let detected: string[] = [];
+    // One discovery pass: the user's manual roots plus auto-detected host + WSL
+    // user skills and the active project's `.claude/skills`, grouped by root.
     try {
-      detected = await detectSkillRoots(this.activeProject?.path ?? null);
+      const { groups } = await discoverSkills(
+        $state.snapshot(this.data.skillRoots),
+        this.activeProject?.path ?? null,
+      );
+      this.skillGroups = groups;
     } catch {
-      detected = [];
-    }
-    this.detectedSkillRoots = detected;
-    try {
-      this.skills = await scanSkills([...detected, ...$state.snapshot(this.data.skillRoots)]);
-    } catch {
-      this.skills = [];
+      this.skillGroups = [];
     }
   }
 }

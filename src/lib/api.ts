@@ -1,5 +1,5 @@
 import { invoke, Channel, isTauri } from '@tauri-apps/api/core';
-import type { AppData, Profile, Skill } from './types';
+import type { AppData, Profile, SkillDiscovery } from './types';
 
 /** Messages streamed from a backend PTY over a Tauri channel. */
 export type PtyMessage =
@@ -25,17 +25,17 @@ export async function saveAppData(data: AppData): Promise<void> {
 
 // --- skills ---
 
-export async function scanSkills(roots: string[]): Promise<Skill[]> {
-  return invoke<Skill[]>('scan_skills', { roots });
-}
-
 /**
- * Auto-detected skill roots (host + WSL user skills, and the active project's
- * `.claude/skills`). The frontend unions these with the user's manual roots
- * before scanning. `projectPath` is the active project's path, or `null`.
+ * Discover skills with zero manual configuration: the given manual roots plus
+ * the host + WSL user skills dirs and the active project's `.claude/skills`.
+ * WSL roots are scanned inside WSL so owner-only/symlinked skills resolve.
+ * `projectPath` is the active project's path, or `null`.
  */
-export async function detectSkillRoots(projectPath: string | null): Promise<string[]> {
-  return invoke<string[]>('detect_skill_roots', { projectPath });
+export async function discoverSkills(
+  manualRoots: string[],
+  projectPath: string | null,
+): Promise<SkillDiscovery> {
+  return invoke<SkillDiscovery>('discover_skills', { manualRoots, projectPath });
 }
 
 // --- terminal sessions ---

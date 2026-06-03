@@ -2,17 +2,42 @@
   import { app } from '../state.svelte';
   import { bus } from '../bus.svelte';
   import { defaultProfiles } from '../defaults';
-  import type { Profile, Skill } from '../types';
+  import type { Profile, Skill, SkillGroup } from '../types';
 
   let tab = $state<'skills' | 'profiles'>('skills');
   let newRoot = $state('');
   let selectedSkill = $state<Skill | null>(null);
+  /** Explicit per-group collapse choices (by root). Absent = use the default. */
+  let groupOverride = $state<Record<string, boolean>>({});
   /** Drag-and-drop reordering state for the profile lists. */
   let dragId = $state<string | null>(null);
   let overId = $state<string | null>(null);
 
   function insertSkill(s: Skill) {
     bus.send('/' + s.name, false);
+  }
+  /** Shorten a Linux home path for display: /home/<user>/… → ~/…. */
+  function prettyRoot(root: string): string {
+    return root.replace(/^\/home\/[^/]+/, '~').replace(/^\/root(?=\/|$)/, '~');
+  }
+  /**
+   * A WSL-discovered skill can only be inserted into a WSL terminal — a native
+   * PowerShell/cmd `claude` runs against the Windows host's skills, not WSL's.
+   */
+  function groupBlocked(g: SkillGroup): boolean {
+    return g.kind === 'wsl' && (bus.focusedShell === 'powershell' || bus.focusedShell === 'cmd');
+  }
+  /**
+   * Whether a group is collapsed. Default: blocked groups (WSL skills while a
+   * native shell is focused) start collapsed so they're out of the way during
+   * Windows work; an explicit toggle overrides that for the session.
+   */
+  function isCollapsed(g: SkillGroup): boolean {
+    const o = groupOverride[g.root];
+    return o === undefined ? groupBlocked(g) : o;
+  }
+  function toggleGroup(g: SkillGroup) {
+    groupOverride[g.root] = !isCollapsed(g);
   }
   function addRoot() {
     const r = newRoot.trim();
@@ -74,40 +99,54 @@
         <button class="btn" onclick={addRoot}>+</button>
         <button class="btn" title="Browse folder" onclick={browseRoot}>…</button>
       </div>
-      {#if app.detectedSkillRoots.length}
-        <div class="muted" style="font-size:11px">Auto-detected (user · WSL · active project)</div>
-        {#each app.detectedSkillRoots as root (root)}
-          <div class="list-row" style="padding:2px 0;opacity:.6">
-            <span class="grow" style="font-size:11px">{root}</span>
-            <span class="muted" style="font-size:10px;flex:0 0 auto" title="Detected automatically — not removable">auto</span>
-          </div>
-        {/each}
-      {:else}
-        <div class="muted" style="font-size:11px">Auto-detects ~/.claude/skills (host + WSL) and the active project's .claude/skills.</div>
-      {/if}
+      <div class="muted" style="font-size:11px">Auto-detects ~/.claude/skills (host + WSL) and the active project's .claude/skills.</div>
     </div>
 
-    {#if app.skills.length === 0}
+    {#if app.skillGroups.length === 0}
       <div class="empty">No skills found.</div>
     {:else}
-      {#each app.skills as s (s.path)}
-        <div
-          class="list-row"
-          class:sel={selectedSkill?.path === s.path}
-          onpointerdown={() => (selectedSkill = selectedSkill?.path === s.path ? null : s)}
-          role="presentation"
+      {#each app.skillGroups as g (g.root)}
+        {@const blocked = groupBlocked(g)}
+        {@const folded = isCollapsed(g)}
+        <button
+          class="group-head"
+          class:blocked
+          title={blocked ? `${g.root} — WSL skills aren't usable in the focused PowerShell/cmd terminal` : g.root}
+          onclick={() => toggleGroup(g)}
         >
-          <div class="grow">
-            <div>{s.name}</div>
-            {#if selectedSkill?.path === s.path}
-              <div class="muted" style="font-size:11px;white-space:normal">{s.description || '(no description)'}</div>
-              <div class="muted" style="font-size:10px;white-space:normal">{s.path}</div>
-            {:else}
-              <div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{s.description}</div>
-            {/if}
+          <span class="tw">{folded ? '▸' : '▾'}</span>
+          <span class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{prettyRoot(g.root)}</span>
+          <span class="badge" class:wsl={g.kind === 'wsl'}>{g.kind === 'wsl' ? 'WSL' : 'host'}</span>
+          <span class="muted" style="font-size:11px">{g.skills.length}</span>
+        </button>
+        {#if !folded}
+          {#if g.skills.length === 0}
+            <div class="muted" style="padding:4px 8px 4px 16px;font-size:11px">(no skills found here)</div>
+          {/if}
+          {#each g.skills as s (s.path)}
+          <div
+            class="list-row top"
+            class:sel={selectedSkill?.path === s.path}
+            onclick={() => (selectedSkill = selectedSkill?.path === s.path ? null : s)}
+            role="presentation"
+          >
+            <div class="grow">
+              <div class:skill-name={selectedSkill?.path === s.path}>{s.name}</div>
+              {#if selectedSkill?.path === s.path}
+                <div class="skill-desc">{s.description || '(no description)'}</div>
+                <div class="skill-path">{s.path}</div>
+              {:else}
+                <div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{s.description}</div>
+              {/if}
+            </div>
+            <button
+              class="btn icon"
+              title={blocked ? 'WSL skill — not usable in a PowerShell/cmd terminal' : `Insert /${s.name} into focused terminal`}
+              disabled={!bus.hasFocus || blocked}
+              onclick={(e) => { e.stopPropagation(); insertSkill(s); }}>↳</button>
           </div>
-          <button class="btn icon" title="Insert /{s.name} into focused terminal" disabled={!bus.hasFocus} onclick={(e) => { e.stopPropagation(); insertSkill(s); }}>↳</button>
-        </div>
+          {/each}
+        {/if}
       {/each}
     {/if}
   {:else}
@@ -187,6 +226,69 @@
 </div>
 
 <style>
+  /* Skill-group header (one per detected root) — click to collapse/expand. */
+  .group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--panel-2);
+    border: none;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .group-head:hover {
+    background: #243042;
+  }
+  /* Blocked group (WSL skills, native shell focused): dimmed and collapsed by
+     default so it stays out of the way during Windows work. */
+  .group-head.blocked {
+    opacity: 0.55;
+  }
+  .group-head .tw {
+    flex: 0 0 auto;
+    width: 10px;
+    opacity: 0.6;
+  }
+  /* Selected skill: emphasized name + a readable, full-contrast description. */
+  .skill-name {
+    font-weight: 600;
+  }
+  .skill-desc {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: normal;
+    margin: 3px 0 1px;
+  }
+  .skill-path {
+    color: var(--muted);
+    font-size: 10px;
+    white-space: normal;
+    word-break: break-all;
+  }
+  .badge {
+    flex: 0 0 auto;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+  }
+  /* WSL groups get the cyan accent so their origin reads at a glance. */
+  .badge.wsl {
+    color: var(--border-focus);
+    border-color: var(--border-focus);
+  }
+
   .profile-row {
     padding: 8px;
     border-bottom: 1px solid var(--border);

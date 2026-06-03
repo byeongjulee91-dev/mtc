@@ -58,6 +58,23 @@ export interface Skill {
   path: string;
 }
 
+/** A group of skills sharing one source root. */
+export interface SkillGroup {
+  /** The root the skills were found under (resolved path), used as the header. */
+  root: string;
+  /**
+   * `'wsl'` = scanned inside WSL (only a WSL terminal's `claude` can use them);
+   * `'host'` = scanned on the host filesystem (a native shell's `claude`).
+   */
+  kind: 'wsl' | 'host';
+  skills: Skill[];
+}
+
+/** Result of skill discovery: skills grouped by the root they were found under. */
+export interface SkillDiscovery {
+  groups: SkillGroup[];
+}
+
 /**
  * Persisted tiling layout for a workspace's terminal sessions. It mirrors the
  * runtime `TileNode` tree (see `tiling.ts`) but leaves reference a *profile id*

@@ -115,8 +115,10 @@
     if (active && visible && ready && term) {
       term.focus();
       bus.send = sendToSession;
+      bus.focusedShell = profile.shell;
     } else if (bus.send === sendToSession) {
       bus.send = () => {};
+      bus.focusedShell = null;
     }
   });
 
@@ -315,7 +317,10 @@
     resizeObs?.disconnect();
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
-    if (bus.send === sendToSession) bus.send = () => {};
+    if (bus.send === sendToSession) {
+      bus.send = () => {};
+      bus.focusedShell = null;
+    }
     bus.unregister(sendToSession);
     if (sessionId !== null) void closeSession(sessionId);
     term?.dispose();
