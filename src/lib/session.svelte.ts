@@ -40,6 +40,14 @@ export class PaneRuntime {
   tree = $state<TileNode | null>(null);
   /** Pane id → resolved profile (cwd already stamped). Reactive via SvelteMap. */
   panes = new SvelteMap<number, Profile>();
+  /**
+   * Pane ids whose PTY is currently *busy* — actively emitting output (a
+   * streaming response, an animated spinner, a running command). A pane drops
+   * out of this set once its output goes quiet (see TerminalPane's idle timer),
+   * so `paneCount - busyCount` is the number of idle / waiting sessions.
+   * Reactive via SvelteMap so the left-panel badge re-derives on each flip.
+   */
+  busy = new SvelteMap<number, true>();
   focusedId = $state<number | null>(null);
   maximizedId = $state<number | null>(null);
   /** Monotonic pane-id allocator (plain — never read reactively). */
@@ -53,6 +61,12 @@ export class PaneRuntime {
   /** Number of open panes (live sessions) in this bucket. */
   get paneCount(): number {
     return this.tree ? leafCount(this.tree) : 0;
+  }
+
+  /** Number of panes currently busy (PTY actively emitting output). The rest
+   *  (`paneCount - busyCount`) are idle / waiting for input. */
+  get busyCount(): number {
+    return this.busy.size;
   }
 
   /** Pane ids in reading order. */
@@ -75,6 +89,7 @@ export class PaneRuntime {
   /** Replace this runtime's contents from a freshly built layout. */
   load(built: BuiltLayout): void {
     this.panes.clear();
+    this.busy.clear();
     for (const [id, profile] of built.panes) this.panes.set(id, profile);
     this.tree = built.tree;
     this.nextId = built.nextId;
@@ -102,10 +117,18 @@ export class PaneRuntime {
     if (profile) this.addPane(profile, dir);
   }
 
+  /** Record whether pane `id` is busy (its PTY is actively emitting output).
+   *  Idempotent — TerminalPane calls this on every busy↔idle transition. */
+  setBusy(id: number, busy: boolean): void {
+    if (busy) this.busy.set(id, true);
+    else this.busy.delete(id);
+  }
+
   /** Close a pane; its sibling subtree takes over the freed space. */
   closePane(id: number): void {
     this.tree = this.tree ? removePane(this.tree, id) : null;
     this.panes.delete(id);
+    this.busy.delete(id);
     if (this.maximizedId === id) this.maximizedId = null;
     if (this.focusedId === id) {
       const ord = this.order;

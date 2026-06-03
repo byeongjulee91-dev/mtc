@@ -145,14 +145,20 @@
     const rt = runtimes.get(bucketKey);
     bus.hasFocus = !!(rt && rt.tree);
   });
-  // Live (warm) session counts per bucket, for the left panel's badge + park.
+  // Live (warm) and busy session counts per bucket, for the left panel's badge
+  // + park. Busy is a subset of live; the panel derives idle = live − busy.
   $effect(() => {
-    const counts: Record<string, number> = {};
+    const live: Record<string, number> = {};
+    const busy: Record<string, number> = {};
     for (const [key, rt] of runtimes) {
       const n = rt.paneCount;
-      if (n > 0) counts[key] = n;
+      if (n > 0) {
+        live[key] = n;
+        busy[key] = rt.busyCount;
+      }
     }
-    bus.liveCounts = counts;
+    bus.liveCounts = live;
+    bus.busyCounts = busy;
   });
 
   // Side panels / terminal key handlers act on the *active* runtime. These read
@@ -296,7 +302,12 @@
                 <span class="grow">{profile.name}{profile.command ? ` · ${profile.command}` : ''}</span>
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
-              <TerminalPane {profile} active={isActive && id === rt.focusedId} visible={isActive} />
+              <TerminalPane
+                {profile}
+                active={isActive && id === rt.focusedId}
+                visible={isActive}
+                onbusy={(b) => rt.setBusy(id, b)}
+              />
             </div>
           {/if}
         {/each}

@@ -149,11 +149,19 @@
             </span>
           </button>
           {#if bus.liveCounts[p.id]}
-            <span class="live-badge" title="{bus.liveCounts[p.id]} live session(s)">{bus.liveCounts[p.id]}</span>
+            {@const live = bus.liveCounts[p.id]}
+            {@const busy = bus.busyCounts[p.id] ?? 0}
+            {@const idle = live - busy}
+            {#if busy > 0}
+              <span class="live-badge busy" title="{busy} of {live} session(s) working">▶ {busy}</span>
+            {/if}
+            {#if idle > 0}
+              <span class="live-badge idle" title="{idle} of {live} session(s) idle / waiting">✓ {idle}</span>
+            {/if}
             {#if app.data.activeProjectId !== p.id}
               <button
                 class="btn icon"
-                title="Park — close this project's {bus.liveCounts[p.id]} session(s) to free memory (layout is kept; reopens on next visit)"
+                title="Park — close this project's {live} session(s) to free memory (layout is kept; reopens on next visit)"
                 onclick={() => bus.parkProject(p.id)}>⏸</button
               >
             {/if}
@@ -364,7 +372,10 @@
 {/if}
 
 <style>
-  /* Count of warm (live) terminal sessions a project currently holds. */
+  /* Badges for a project's warm terminal sessions, split by activity: how many
+     are busy (PTY actively emitting output) vs idle / waiting. Same pill shape,
+     differentiated by colour so a glance down the list shows which projects
+     still have work in flight. */
   .live-badge {
     flex: 0 0 auto;
     min-width: 16px;
@@ -375,5 +386,24 @@
     line-height: 16px;
     color: var(--bg);
     background: var(--accent);
+  }
+  /* Busy = cyan (the app's "active" accent) with a soft pulse to read as
+     in-motion; idle = muted grey, calm. */
+  .live-badge.busy {
+    background: var(--border-focus);
+    animation: badge-pulse 1.4s ease-in-out infinite;
+  }
+  .live-badge.idle {
+    background: var(--muted);
+  }
+  @keyframes badge-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-badge.busy {
+      animation: none;
+    }
   }
 </style>

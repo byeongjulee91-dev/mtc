@@ -47,6 +47,14 @@ class Bus {
    * on projects that currently hold running sessions.
    */
   liveCounts = $state<Record<string, number>>({});
+  /**
+   * Busy session counts per workspace bucket key — a subset of `liveCounts`
+   * counting only panes whose PTY is actively emitting output (see
+   * `PaneRuntime.busy`). The left panel splits each project's live badge into
+   * busy vs idle (`idle = liveCounts - busyCounts`). Kept in sync alongside
+   * `liveCounts` by the tiling container.
+   */
+  busyCounts = $state<Record<string, number>>({});
   /** Whether at least one terminal pane is open in the active workspace. */
   hasFocus = $state(false);
   /**

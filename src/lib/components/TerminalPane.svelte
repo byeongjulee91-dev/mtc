@@ -25,8 +25,15 @@
      *  shown again. Defaults to true so single-workspace callers need not pass it. */
     visible?: boolean;
     onexit?: () => void;
+    /**
+     * Report this session's busy↔idle transitions: `true` when the PTY starts
+     * emitting output, `false` once it goes quiet (see the idle timer below).
+     * The tiling container forwards it to `PaneRuntime.setBusy` so the left
+     * panel can show busy / idle session counts.
+     */
+    onbusy?: (busy: boolean) => void;
   }
-  let { profile, active, visible = true, onexit }: Props = $props();
+  let { profile, active, visible = true, onexit, onbusy }: Props = $props();
 
   let host: HTMLDivElement;
   let term: Terminal | null = null;
@@ -38,6 +45,30 @@
 
   function sendToSession(text: string, enter = false) {
     if (sessionId !== null) void writeSession(sessionId, enter ? text + '\r' : text);
+  }
+
+  // --- busy / idle detection ---------------------------------------------
+  // A session is "busy" while its PTY is emitting output — a streaming claude
+  // response, an animated spinner (TUI apps redraw every ~100ms while working),
+  // or a running command — and flips back to "idle" once output stays quiet for
+  // IDLE_MS. The threshold sits comfortably above a spinner's redraw interval so
+  // working sessions don't flicker, while still feeling responsive when a
+  // response finishes and the prompt goes quiet. Local echo of typed input also
+  // counts as activity, so a session reads busy briefly while you type into it.
+  const IDLE_MS = 1200;
+  let busy = false;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function setBusy(next: boolean) {
+    if (busy === next) return;
+    busy = next;
+    onbusy?.(next);
+  }
+  // Called on every chunk of PTY output: (re)arm the quiet timer and mark busy.
+  function noteOutput() {
+    setBusy(true);
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => setBusy(false), IDLE_MS);
   }
 
   // --- copy / paste ---
@@ -191,9 +222,15 @@
 
     try {
       sessionId = await createSession(profile, term.cols, term.rows, {
-        onData: (bytes) => term?.write(bytes),
+        onData: (bytes) => {
+          term?.write(bytes);
+          noteOutput();
+        },
         onExit: () => {
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
+          // An exited process can't be busy — drop it out of the busy count.
+          clearTimeout(idleTimer);
+          setBusy(false);
           onexit?.();
         },
       });
@@ -329,6 +366,7 @@
 
   onDestroy(() => {
     host?.removeEventListener('wheel', onWheel);
+    clearTimeout(idleTimer);
     resizeObs?.disconnect();
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
