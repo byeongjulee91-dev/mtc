@@ -25,15 +25,8 @@
      *  shown again. Defaults to true so single-workspace callers need not pass it. */
     visible?: boolean;
     onexit?: () => void;
-    /**
-     * Report this session's busy↔idle transitions: `true` when the PTY starts
-     * emitting output, `false` once it goes quiet (see the idle timer below).
-     * The tiling container forwards it to `PaneRuntime.setBusy` so the left
-     * panel can show busy / idle session counts.
-     */
-    onbusy?: (busy: boolean) => void;
   }
-  let { profile, active, visible = true, onexit, onbusy }: Props = $props();
+  let { profile, active, visible = true, onexit }: Props = $props();
 
   let host: HTMLDivElement;
   let term: Terminal | null = null;
@@ -45,44 +38,6 @@
 
   function sendToSession(text: string, enter = false) {
     if (sessionId !== null) void writeSession(sessionId, enter ? text + '\r' : text);
-  }
-
-  // --- busy / idle detection ---------------------------------------------
-  // A session is "busy" while its PTY is emitting output — a streaming claude
-  // response, an animated spinner (TUI apps redraw every ~100ms while working),
-  // or a running command — and flips back to "idle" once output stays quiet for
-  // IDLE_MS. The threshold sits comfortably above a spinner's redraw interval so
-  // working sessions don't flicker, while still feeling responsive when a
-  // response finishes and the prompt goes quiet. Local echo of typed input also
-  // counts as activity, so a session reads busy briefly while you type into it.
-  const IDLE_MS = 1200;
-  let busy = false;
-  let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  // Last grid size pushed to the PTY. Re-showing a pane at the same size (a
-  // project switch) would otherwise resize it anyway, forcing the TUI to repaint
-  // — so we skip no-op resizes (and the spurious IPC + repaint they cause).
-  let lastCols = 0;
-  let lastRows = 0;
-  // Until this timestamp, PTY output is treated as a resize / visibility repaint
-  // (a TUI redrawing itself to a new grid, or on focus) rather than the session
-  // doing work — so switching projects or dragging a divider never flips an idle
-  // session to "busy". Opened by pushResize() and the becomes-visible effect.
-  const RESIZE_QUIET_MS = 500;
-  let quietUntil = 0;
-
-  function setBusy(next: boolean) {
-    if (busy === next) return;
-    busy = next;
-    onbusy?.(next);
-  }
-  // Called on every chunk of PTY output: mark busy and (re)arm the idle timer —
-  // unless we're in a post-resize quiet window, where the output is just the TUI
-  // repainting itself (e.g. after a project switch), not the session working.
-  function noteOutput() {
-    if (Date.now() < quietUntil) return;
-    setBusy(true);
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => setBusy(false), IDLE_MS);
   }
 
   // --- copy / paste ---
@@ -186,14 +141,11 @@
   // lines; re-pinning to the bottom keeps the prompt in view on return.
   $effect(() => {
     if (!visible || !ready || !term) return;
-    // Becoming visible re-shows (and may refocus) this pane, which makes the TUI
-    // repaint to the now-measurable grid; treat that as quiet so a mere project
-    // switch never reads as the session working.
-    quietUntil = Date.now() + RESIZE_QUIET_MS;
     let cancelled = false;
     const raf = requestAnimationFrame(async () => {
       if (cancelled || !term) return;
-      await pushResize();
+      safeFit();
+      if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
       if (!cancelled) term?.scrollToBottom();
     });
     return () => {
@@ -239,15 +191,9 @@
 
     try {
       sessionId = await createSession(profile, term.cols, term.rows, {
-        onData: (bytes) => {
-          term?.write(bytes);
-          noteOutput();
-        },
+        onData: (bytes) => term?.write(bytes),
         onExit: () => {
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
-          // An exited process can't be busy — drop it out of the busy count.
-          clearTimeout(idleTimer);
-          setBusy(false);
           onexit?.();
         },
       });
@@ -261,7 +207,8 @@
     });
 
     resizeObs = new ResizeObserver(() => {
-      void pushResize();
+      safeFit();
+      if (term && sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
     });
     resizeObs.observe(host);
   });
@@ -274,22 +221,6 @@
     }
   }
 
-  // Re-fit to the host and push the new size to the PTY, but only when it
-  // actually changed — a no-op resize on a project switch just makes the TUI
-  // repaint (which would read as false activity) and costs a needless SIGWINCH.
-  // A real resize opens a brief quiet window so the repaint it triggers isn't
-  // counted as work. Awaits the resize so callers can re-pin the viewport after.
-  async function pushResize(): Promise<void> {
-    if (!term) return;
-    safeFit();
-    if (sessionId === null) return;
-    if (term.cols === lastCols && term.rows === lastRows) return;
-    lastCols = term.cols;
-    lastRows = term.rows;
-    quietUntil = Date.now() + RESIZE_QUIET_MS;
-    await resizeSession(sessionId, term.cols, term.rows);
-  }
-
   // Font size is shared across panes via app state. When it changes (from this
   // pane or another), apply it here, re-fit so the grid stays aligned, then push
   // the new cols/rows down to the PTY.
@@ -298,7 +229,8 @@
     if (!term || !ready) return;
     if (term.options.fontSize === size) return;
     term.options.fontSize = size;
-    void pushResize();
+    safeFit();
+    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
   });
 
   // Ctrl + wheel zooms the terminal font. Mutating shared state triggers the
@@ -397,7 +329,6 @@
 
   onDestroy(() => {
     host?.removeEventListener('wheel', onWheel);
-    clearTimeout(idleTimer);
     resizeObs?.disconnect();
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.

@@ -146,26 +146,13 @@
     bus.hasFocus = !!(rt && rt.tree);
   });
   // Live (warm) session counts per bucket, for the left panel's badge + park.
-  // Recomputed only when a bucket's pane count changes.
   $effect(() => {
-    const live: Record<string, number> = {};
+    const counts: Record<string, number> = {};
     for (const [key, rt] of runtimes) {
       const n = rt.paneCount;
-      if (n > 0) live[key] = n;
+      if (n > 0) counts[key] = n;
     }
-    bus.liveCounts = live;
-  });
-  // Busy session counts per bucket (a subset of live; the panel derives idle =
-  // live − busy). Kept in its own effect so a pane flipping busy↔idle doesn't
-  // re-run the tree-walking live recount above or re-render badges whose total
-  // is unchanged — only the busy figures move.
-  $effect(() => {
-    const busy: Record<string, number> = {};
-    for (const [key, rt] of runtimes) {
-      const b = rt.busyCount;
-      if (b > 0) busy[key] = b;
-    }
-    bus.busyCounts = busy;
+    bus.liveCounts = counts;
   });
 
   // Side panels / terminal key handlers act on the *active* runtime. These read
@@ -309,12 +296,7 @@
                 <span class="grow">{profile.name}{profile.command ? ` · ${profile.command}` : ''}</span>
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
-              <TerminalPane
-                {profile}
-                active={isActive && id === rt.focusedId}
-                visible={isActive}
-                onbusy={(b) => rt.setBusy(id, b)}
-              />
+              <TerminalPane {profile} active={isActive && id === rt.focusedId} visible={isActive} />
             </div>
           {/if}
         {/each}
