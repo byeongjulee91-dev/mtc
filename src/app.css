@@ -282,18 +282,40 @@ button {
 .row-actions:focus-within {
   opacity: 1;
 }
-/* Saved-query text wraps to its full content instead of truncating. */
+/* Saved-query rows read as discrete, tidy units: a hairline beneath each (except
+   the last) groups the name line with its preview and separates neighbours. */
+.query-item {
+  border-bottom: 1px solid var(--border);
+}
+.query-item:last-child {
+  border-bottom: none;
+}
+/* Saved-query preview: a quiet snippet under the name, clamped to a few lines so
+   long queries don't blow out the row (the title attribute shows the full text).
+   Rendered only when it wouldn't just repeat the name (see LeftPanel). */
 .query-text {
+  margin-top: 3px;
   font-size: 11px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
-/* Query title line: the name preceded by its shortcut badge (when assigned). */
+/* Query title line: the name preceded by its shortcut badge (when assigned).
+   Wraps so a long name plus its badges fold gracefully instead of overflowing. */
 .q-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+/* The query name itself — lightly emphasised so it anchors each saved row. */
+.q-name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 /* Always-visible chip showing the Alt+digit shortcut bound to a query. */
 .hotkey-badge {
@@ -333,6 +355,21 @@ button {
   cursor: pointer;
 }
 .hotkey-select:hover {
+  border-color: var(--accent);
+}
+/* Full-size select for the query compose form — matches the .btn height and the
+   13px base, unlike the compact 11px .hotkey-select used in hover action clusters. */
+.select-lg {
+  flex: none;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.select-lg:hover {
   border-color: var(--accent);
 }
 

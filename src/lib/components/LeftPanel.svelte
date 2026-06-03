@@ -229,10 +229,10 @@
   {:else}
     <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
       <input class="field" placeholder="Query name" bind:value={queryName} />
-      <textarea class="field" rows="2" placeholder="Query text sent to the focused terminal" bind:value={queryText}></textarea>
+      <textarea class="field" rows="3" placeholder="Query text sent to the focused terminal" bind:value={queryText}></textarea>
       <div style="display:flex;gap:6px;align-items:center">
         <select
-          class="hotkey-select"
+          class="select-lg"
           title="What happens when this query is inserted"
           bind:value={querySubmit}
         >
@@ -245,6 +245,7 @@
     {#if app.data.queries.length === 0}
       <div class="empty">No saved queries.</div>
     {:else}
+      <div class="section-head">Saved queries · {app.data.queries.length}</div>
       {#each app.data.queries as q (q.id)}
         {#if editingQueryId === q.id}
           <div class="list-row top" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -261,7 +262,7 @@
             </div>
           </div>
         {:else}
-          <div class="list-row top row-float">
+          <div class="list-row top row-float query-item">
             <div
               class="grow wrap"
               draggable="true"
@@ -274,12 +275,14 @@
                 {#if q.hotkey !== null}
                   <span class="hotkey-badge" title="Shortcut: Alt+{q.hotkey}">Alt+{q.hotkey}</span>
                 {/if}
+                <span class="q-name">{q.name}</span>
                 {#if !q.submit}
                   <span class="mode-badge" title="Inserting appends the text only — no Enter">append</span>
                 {/if}
-                <span>{q.name}</span>
               </div>
-              <div class="muted query-text">{q.text}</div>
+              {#if q.text.trim() !== q.name.trim()}
+                <div class="muted query-text" title={q.text}>{q.text}</div>
+              {/if}
             </div>
             <div class="row-actions">
               <select
