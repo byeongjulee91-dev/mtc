@@ -29,6 +29,15 @@ export async function scanSkills(roots: string[]): Promise<Skill[]> {
   return invoke<Skill[]>('scan_skills', { roots });
 }
 
+/**
+ * Auto-detected skill roots (host + WSL user skills, and the active project's
+ * `.claude/skills`). The frontend unions these with the user's manual roots
+ * before scanning. `projectPath` is the active project's path, or `null`.
+ */
+export async function detectSkillRoots(projectPath: string | null): Promise<string[]> {
+  return invoke<string[]>('detect_skill_roots', { projectPath });
+}
+
 // --- terminal sessions ---
 
 export interface SessionCallbacks {

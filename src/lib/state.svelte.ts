@@ -1,6 +1,6 @@
 import type { AppData, LayoutNode, Profile, Skill, Todo, SavedQuery, Project } from './types';
 import { DEFAULT_FONT_SIZE, UNFILED_KEY, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
-import { loadAppData, saveAppData, scanSkills } from './api';
+import { loadAppData, saveAppData, scanSkills, detectSkillRoots } from './api';
 
 /**
  * Reactive application state (Svelte 5 runes). Holds persisted data (projects
@@ -10,6 +10,8 @@ import { loadAppData, saveAppData, scanSkills } from './api';
 class AppState {
   data = $state<AppData>(defaultAppData());
   skills = $state<Skill[]>([]);
+  /** Auto-detected skill roots (read-only), shown alongside the manual ones. */
+  detectedSkillRoots = $state<string[]>([]);
   loaded = $state(false);
   /** True when running outside Tauri (e.g. `vite` in a plain browser). */
   standalone = $state(false);
@@ -66,6 +68,8 @@ class AppState {
   selectProject(id: string): void {
     this.data.activeProjectId = id;
     this.scheduleSave();
+    // The active project's `.claude/skills` is auto-detected, so re-scan.
+    void this.refreshSkills();
   }
 
   // --- per-workspace terminal layout (persisted; drives restore on launch) ---
@@ -291,8 +295,17 @@ class AppState {
   }
   async refreshSkills(): Promise<void> {
     if (this.standalone) return;
+    // Auto-detect user (host + WSL) and active-project skill roots, then union
+    // them with the user's manual roots before scanning.
+    let detected: string[] = [];
     try {
-      this.skills = await scanSkills($state.snapshot(this.data.skillRoots));
+      detected = await detectSkillRoots(this.activeProject?.path ?? null);
+    } catch {
+      detected = [];
+    }
+    this.detectedSkillRoots = detected;
+    try {
+      this.skills = await scanSkills([...detected, ...$state.snapshot(this.data.skillRoots)]);
     } catch {
       this.skills = [];
     }

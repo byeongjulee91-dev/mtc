@@ -42,6 +42,15 @@ fn scan_skills(app: tauri::AppHandle, roots: Vec<String>) -> Vec<Skill> {
     storage::scan_skills(&roots)
 }
 
+/// Auto-detected skill roots (host + WSL user skills, plus the active project's
+/// `.claude/skills`) that the frontend unions with the user's manual roots
+/// before scanning. `project_path` is the active project's path, or `None`.
+#[tauri::command]
+fn detect_skill_roots(app: tauri::AppHandle, project_path: Option<String>) -> Vec<String> {
+    let home = app.path().home_dir().ok();
+    storage::auto_skill_roots(home.as_deref(), project_path.as_deref(), cfg!(windows))
+}
+
 #[tauri::command]
 fn create_session(
     manager: tauri::State<PtyManager>,
@@ -82,6 +91,7 @@ fn main() {
             load_app_data,
             save_app_data,
             scan_skills,
+            detect_skill_roots,
             create_session,
             write_session,
             resize_session,

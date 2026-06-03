@@ -74,7 +74,17 @@
         <button class="btn" onclick={addRoot}>+</button>
         <button class="btn" title="Browse folder" onclick={browseRoot}>…</button>
       </div>
-      <div class="muted" style="font-size:11px">Defaults to ~/.claude/skills when no roots are set.</div>
+      {#if app.detectedSkillRoots.length}
+        <div class="muted" style="font-size:11px">Auto-detected (user · WSL · active project)</div>
+        {#each app.detectedSkillRoots as root (root)}
+          <div class="list-row" style="padding:2px 0;opacity:.6">
+            <span class="grow" style="font-size:11px">{root}</span>
+            <span class="muted" style="font-size:10px;flex:0 0 auto" title="Detected automatically — not removable">auto</span>
+          </div>
+        {/each}
+      {:else}
+        <div class="muted" style="font-size:11px">Auto-detects ~/.claude/skills (host + WSL) and the active project's .claude/skills.</div>
+      {/if}
     </div>
 
     {#if app.skills.length === 0}
