@@ -130,10 +130,6 @@
 
 <div class="panel-body">
   {#if tab === 'project'}
-    <div class="empty">
-      Select a project to scope its todos and open new sessions in its directory.
-      Use <strong>+</strong> above to add one.
-    </div>
     {#if app.data.projects.length === 0}
       <div class="empty">No projects yet.</div>
     {:else}
