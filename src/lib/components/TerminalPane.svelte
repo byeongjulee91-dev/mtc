@@ -57,9 +57,24 @@
   let busyTimer: ReturnType<typeof setTimeout> | null = null;
   let isBusy = false;
 
+  // A resize (fit + SIGWINCH) makes TUI apps repaint their whole screen, which is
+  // a burst of PTY output that isn't real work. Switching projects shows a hidden
+  // pane → it re-fits → that redraw would otherwise flash the "busy" dot. So
+  // ignore output for a short window after we trigger a resize. Background panes
+  // (where the dot actually matters) aren't resized, so real activity there is
+  // unaffected; a genuinely-streaming pane just resumes marking busy once the
+  // window passes.
+  const RESIZE_QUIET_MS = 600;
+  let suppressBusyUntil = 0;
+  function markResize() {
+    suppressBusyUntil = Date.now() + RESIZE_QUIET_MS;
+  }
+
   // Called for every chunk of PTY output: report busy on the leading edge, then
-  // (re)arm the idle timer that clears it after a quiet spell.
+  // (re)arm the idle timer that clears it after a quiet spell. Output arriving in
+  // the quiet window just after a resize is the redraw, not work — skip it.
   function noteOutput() {
+    if (Date.now() < suppressBusyUntil) return;
     if (!isBusy) {
       isBusy = true;
       onbusy?.(true);
@@ -195,7 +210,11 @@
     const raf = requestAnimationFrame(async () => {
       if (cancelled || !term) return;
       safeFit();
-      if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
+      if (sessionId !== null) {
+        markResize();
+        await resizeSession(sessionId, term.cols, term.rows);
+        markResize(); // re-stamp: the redraw lands after the SIGWINCH round-trip
+      }
       if (!cancelled) term?.scrollToBottom();
     });
     return () => {
@@ -261,7 +280,10 @@
 
     resizeObs = new ResizeObserver(() => {
       safeFit();
-      if (term && sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+      if (term && sessionId !== null) {
+        markResize();
+        void resizeSession(sessionId, term.cols, term.rows);
+      }
     });
     resizeObs.observe(host);
   });
@@ -283,7 +305,10 @@
     if (term.options.fontSize === size) return;
     term.options.fontSize = size;
     safeFit();
-    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
+    if (sessionId !== null) {
+      markResize();
+      void resizeSession(sessionId, term.cols, term.rows);
+    }
   });
 
   // Ctrl + wheel zooms the terminal font. Mutating shared state triggers the
