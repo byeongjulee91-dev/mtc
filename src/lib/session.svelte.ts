@@ -1,4 +1,4 @@
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Profile } from './types';
 import type { BuiltLayout } from './layout';
 import {
@@ -42,6 +42,14 @@ export class PaneRuntime {
   panes = new SvelteMap<number, Profile>();
   focusedId = $state<number | null>(null);
   maximizedId = $state<number | null>(null);
+  /**
+   * Pane ids whose PTY is currently producing output ("busy"). Each pane sets
+   * and clears its own id via an idle timer in `TerminalPane`: output keeps it
+   * busy, a short silence clears it. Reactive (SvelteSet) so the left panel can
+   * show a per-project "working" indicator. Kept in sync with `panes` — cleared
+   * on `load`, pruned on `closePane`.
+   */
+  busyPanes = new SvelteSet<number>();
   /** Monotonic pane-id allocator (plain — never read reactively). */
   nextId = 1;
 
@@ -53,6 +61,17 @@ export class PaneRuntime {
   /** Number of open panes (live sessions) in this bucket. */
   get paneCount(): number {
     return this.tree ? leafCount(this.tree) : 0;
+  }
+
+  /** Number of panes currently busy (streaming output). */
+  get busyCount(): number {
+    return this.busyPanes.size;
+  }
+
+  /** Mark a pane busy/idle — driven by `TerminalPane`'s output idle timer. */
+  setBusy(id: number, busy: boolean): void {
+    if (busy) this.busyPanes.add(id);
+    else this.busyPanes.delete(id);
   }
 
   /** Pane ids in reading order. */
@@ -75,6 +94,7 @@ export class PaneRuntime {
   /** Replace this runtime's contents from a freshly built layout. */
   load(built: BuiltLayout): void {
     this.panes.clear();
+    this.busyPanes.clear();
     for (const [id, profile] of built.panes) this.panes.set(id, profile);
     this.tree = built.tree;
     this.nextId = built.nextId;
@@ -106,6 +126,7 @@ export class PaneRuntime {
   closePane(id: number): void {
     this.tree = this.tree ? removePane(this.tree, id) : null;
     this.panes.delete(id);
+    this.busyPanes.delete(id);
     if (this.maximizedId === id) this.maximizedId = null;
     if (this.focusedId === id) {
       const ord = this.order;

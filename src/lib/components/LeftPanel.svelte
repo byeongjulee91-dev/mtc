@@ -206,6 +206,9 @@
               {/if}
             </span>
           </button>
+          {#if bus.busyCounts[p.id]}
+            <span class="busy-dot" title="{bus.busyCounts[p.id]} session(s) working"></span>
+          {/if}
           {#if bus.liveCounts[p.id]}
             <span class="live-badge" title="{bus.liveCounts[p.id]} live session(s)">{bus.liveCounts[p.id]}</span>
             {#if app.data.activeProjectId !== p.id}
@@ -479,5 +482,33 @@
     line-height: 16px;
     color: var(--bg);
     background: var(--accent);
+  }
+  /* A small pulsing cyan dot marking a project whose sessions are actively
+     producing output (claude/codex working). Cyan (--border-focus) reads as
+     "live activity", distinct from the blue live-session count badge. */
+  .busy-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-focus);
+    animation: busy-pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes busy-pulse {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .busy-dot {
+      animation: none;
+      opacity: 0.9;
+    }
   }
 </style>

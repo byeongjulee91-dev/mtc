@@ -47,6 +47,12 @@ class Bus {
    * on projects that currently hold running sessions.
    */
   liveCounts = $state<Record<string, number>>({});
+  /**
+   * Busy (output-streaming) session counts per workspace bucket key, kept in
+   * sync by the tiling container alongside `liveCounts`. The left panel reads it
+   * to show a pulsing "working" dot on projects whose sessions are active.
+   */
+  busyCounts = $state<Record<string, number>>({});
   /** Whether at least one terminal pane is open in the active workspace. */
   hasFocus = $state(false);
   /**

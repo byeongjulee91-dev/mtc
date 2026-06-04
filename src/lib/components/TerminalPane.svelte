@@ -25,8 +25,11 @@
      *  shown again. Defaults to true so single-workspace callers need not pass it. */
     visible?: boolean;
     onexit?: () => void;
+    /** Report this pane busy (streaming output) / idle, for the project panel's
+     *  working indicator. Driven by the output idle timer below. */
+    onbusy?: (busy: boolean) => void;
   }
-  let { profile, active, visible = true, onexit }: Props = $props();
+  let { profile, active, visible = true, onexit, onbusy }: Props = $props();
 
   let host: HTMLDivElement;
   let term: Terminal | null = null;
@@ -43,6 +46,31 @@
   // split them across reads). So write the text, let the app drain it, then send
   // the Enter on its own so it's read as a discrete submit keystroke.
   const ENTER_DELAY_MS = 75;
+
+  // --- busy detection ---
+  // We call a session "busy" while its PTY is producing output and "idle" once it
+  // falls silent. claude/codex stream tokens (and animate a spinner) while they
+  // work, so output keeps the pane busy; when they finish and wait at the prompt
+  // the stream stops and this timer flips it back. ~700ms rides over the small
+  // gaps between streamed chunks without lagging noticeably behind a done task.
+  const BUSY_IDLE_MS = 700;
+  let busyTimer: ReturnType<typeof setTimeout> | null = null;
+  let isBusy = false;
+
+  // Called for every chunk of PTY output: report busy on the leading edge, then
+  // (re)arm the idle timer that clears it after a quiet spell.
+  function noteOutput() {
+    if (!isBusy) {
+      isBusy = true;
+      onbusy?.(true);
+    }
+    if (busyTimer) clearTimeout(busyTimer);
+    busyTimer = setTimeout(() => {
+      busyTimer = null;
+      isBusy = false;
+      onbusy?.(false);
+    }, BUSY_IDLE_MS);
+  }
 
   function sendToSession(text: string, enter = false) {
     const id = sessionId;
@@ -213,7 +241,10 @@
 
     try {
       sessionId = await createSession(profile, term.cols, term.rows, {
-        onData: (bytes) => term?.write(bytes),
+        onData: (bytes) => {
+          term?.write(bytes);
+          noteOutput();
+        },
         onExit: () => {
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
           onexit?.();
@@ -352,6 +383,10 @@
   onDestroy(() => {
     host?.removeEventListener('wheel', onWheel);
     resizeObs?.disconnect();
+    // Stop the idle timer and clear any lingering busy state so a pane that's
+    // closed (or parked) mid-stream doesn't leave its project marked working.
+    if (busyTimer) clearTimeout(busyTimer);
+    if (isBusy) onbusy?.(false);
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
     if (bus.send === sendToSession) {

@@ -154,6 +154,17 @@
     }
     bus.liveCounts = counts;
   });
+  // Busy (streaming) session counts per bucket — drives the left panel's working
+  // dot. Same shape and derivation as liveCounts, but reads each runtime's busy
+  // set, which TerminalPane keeps current via its output idle timer.
+  $effect(() => {
+    const counts: Record<string, number> = {};
+    for (const [key, rt] of runtimes) {
+      const n = rt.busyCount;
+      if (n > 0) counts[key] = n;
+    }
+    bus.busyCounts = counts;
+  });
 
   // Side panels / terminal key handlers act on the *active* runtime. These read
   // current state at call time, so a single assignment is enough.
@@ -296,7 +307,12 @@
                 <span class="grow">{profile.name}{profile.command ? ` · ${profile.command}` : ''}</span>
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
-              <TerminalPane {profile} active={isActive && id === rt.focusedId} visible={isActive} />
+              <TerminalPane
+                {profile}
+                active={isActive && id === rt.focusedId}
+                visible={isActive}
+                onbusy={(b) => rt.setBusy(id, b)}
+              />
             </div>
           {/if}
         {/each}
