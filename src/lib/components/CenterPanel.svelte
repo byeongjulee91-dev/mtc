@@ -279,6 +279,7 @@
   {#if app.gitModifiedCount !== null}
     <button
       class="git-count"
+      class:dirty={!!app.gitModifiedCount}
       title="{app.gitModifiedCount} modified · git-tracked 변경 파일 · {app.activeProject?.path ?? ''} · 클릭하면 다시 셈"
       onclick={() => app.refreshGitModifiedCount()}
     >✎ {app.gitModifiedCount}</button>

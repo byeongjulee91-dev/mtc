@@ -458,12 +458,13 @@ textarea.field {
   align-items: center;
   gap: 4px;
   max-width: 220px;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -477,26 +478,36 @@ textarea.field {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
 }
 .git-count:hover {
   border-color: var(--accent);
-  color: var(--text);
 }
-/* Failure state (git not found / dubious ownership / …): a warm-bordered pill
-   so the problem is visible instead of the badge silently vanishing. */
+/* Has uncommitted changes — the important, actionable state: an accent-tinted
+   pill so it stands out from the rest of the toolbar chrome. */
+.git-count.dirty {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, var(--panel-2));
+}
+.git-count.dirty:hover {
+  background: color-mix(in srgb, var(--accent) 34%, var(--panel-2));
+}
+/* Failure state (git not found / dubious ownership / …): a warm-tinted pill so
+   the problem is visible instead of the badge silently vanishing. */
 .git-count.err {
+  color: #f0b765;
   border-color: #d9a05b;
-  color: #d9a05b;
+  background: color-mix(in srgb, #d9a05b 18%, var(--panel-2));
 }
 
 /* center / terminals */
