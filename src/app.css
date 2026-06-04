@@ -469,6 +469,23 @@ textarea.field {
   white-space: nowrap;
 }
 
+/* Git-tracked file count for the active project — a quiet pill at the left of
+   the top profile bar (mirrors the .cwd-hint treatment on the right). */
+.git-count {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: default;
+}
+
 /* center / terminals */
 .profile-bar {
   display: flex;

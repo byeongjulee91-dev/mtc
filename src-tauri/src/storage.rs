@@ -271,14 +271,14 @@ fn is_ancestor(anc: &str, desc: &str) -> bool {
 
 /// True for a Linux-style path (absolute `/…` or home-relative `~…`) as opposed
 /// to a native Windows path (`C:\…`, `\\server\…`).
-fn is_linux_path(path: &str) -> bool {
+pub(crate) fn is_linux_path(path: &str) -> bool {
     let p = path.trim();
     p.starts_with('/') || p.starts_with('~')
 }
 
 /// A double-quote-safe WSL expression for a root path: a leading `~` becomes
 /// `$HOME` so bash expands it inside the quotes (a bare `~` would not).
-fn to_wsl_root_expr(path: &str) -> String {
+pub(crate) fn to_wsl_root_expr(path: &str) -> String {
     match path.trim().strip_prefix('~') {
         Some(rest) => format!("$HOME{rest}"),
         None => path.trim().to_string(),

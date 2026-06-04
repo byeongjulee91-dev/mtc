@@ -43,6 +43,17 @@ export async function discoverSkills(
   return invoke<SkillDiscovery>('discover_skills', { manualRoots, projectPath, includeGlobal });
 }
 
+// --- git ---
+
+/**
+ * Count git-tracked files in a project directory. Returns the count (possibly
+ * `0`), or `null` when the path isn't a git repo / git is unavailable, so the
+ * UI can hide the badge. On Windows a Linux-style path is counted inside WSL.
+ */
+export async function countGitFiles(path: string): Promise<number | null> {
+  return invoke<number | null>('count_git_files', { path });
+}
+
 // --- terminal sessions ---
 
 export interface SessionCallbacks {

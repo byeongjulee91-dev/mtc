@@ -1,6 +1,6 @@
 import type { AppData, LayoutNode, Profile, Skill, SkillGroup, Todo, SavedQuery, Project } from './types';
 import { DEFAULT_FONT_SIZE, UNFILED_KEY, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
-import { loadAppData, saveAppData, discoverSkills } from './api';
+import { loadAppData, saveAppData, discoverSkills, countGitFiles } from './api';
 
 /**
  * Reactive application state (Svelte 5 runes). Holds persisted data (projects
@@ -14,6 +14,12 @@ class AppState {
   loaded = $state(false);
   /** True when running outside Tauri (e.g. `vite` in a plain browser). */
   standalone = $state(false);
+  /**
+   * Number of git-tracked files in the active project's directory, or `null`
+   * when unknown (no project, not a git repo, standalone, or git unavailable).
+   * Refreshed when the active project changes; results are cached per path.
+   */
+  gitFileCount = $state<number | null>(null);
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -360,6 +366,39 @@ class AppState {
       if (seq !== this.skillScanSeq) return;
       this.skillGroups = [];
       this.currentSkillKey = null;
+    }
+  }
+
+  // --- git-tracked file count (for the active project's path) ---
+  // Counting spawns `git` (inside WSL on Windows), so results are cached per
+  // path: switching back to a visited project shows the cached count without
+  // re-spawning, and a stale async result is dropped if a newer switch won.
+  private gitCountSeq = 0;
+  private gitCountCache = new Map<string, number | null>();
+  /**
+   * Refresh `gitFileCount` for the active project's path. A no-op (clears to
+   * `null`) in standalone mode or with no active project. Cached per path; a
+   * slow count is discarded if the active project changed before it resolved.
+   */
+  async refreshGitFileCount(): Promise<void> {
+    const path = this.activeProject?.path ?? '';
+    if (this.standalone || !path) {
+      this.gitFileCount = null;
+      return;
+    }
+    if (this.gitCountCache.has(path)) {
+      this.gitFileCount = this.gitCountCache.get(path) ?? null;
+      return;
+    }
+    const seq = ++this.gitCountSeq;
+    try {
+      const count = await countGitFiles(path);
+      if (seq !== this.gitCountSeq) return; // a newer refresh already won
+      this.gitCountCache.set(path, count);
+      this.gitFileCount = count;
+    } catch {
+      if (seq !== this.gitCountSeq) return;
+      this.gitFileCount = null;
     }
   }
 }

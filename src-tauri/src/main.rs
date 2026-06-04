@@ -1,6 +1,7 @@
 // Hide the console window on Windows release builds.
 #![cfg_attr(not(debug_assertions), cfg_attr(target_os = "windows", windows_subsystem = "windows"))]
 
+mod git;
 mod profile;
 mod pty;
 mod storage;
@@ -60,6 +61,19 @@ async fn discover_skills(
     .map_err(|e| format!("skill discovery failed: {e}"))
 }
 
+/// Count git-tracked files in a project directory. Returns `None` when the path
+/// is empty, isn't a git repo, or git is unavailable (the UI hides the badge).
+/// On Windows a Linux-style path is counted inside WSL; native paths run `git`
+/// directly. Spawns a process and blocks on it, so it runs on the blocking pool
+/// to keep project switches from freezing the UI.
+#[tauri::command]
+async fn count_git_files(path: String) -> Result<Option<u32>, String> {
+    let windows = cfg!(windows);
+    tauri::async_runtime::spawn_blocking(move || git::count_tracked_files(&path, windows))
+        .await
+        .map_err(|e| format!("git file count failed: {e}"))
+}
+
 #[tauri::command]
 fn create_session(
     manager: tauri::State<PtyManager>,
@@ -100,6 +114,7 @@ fn main() {
             load_app_data,
             save_app_data,
             discover_skills,
+            count_git_files,
             create_session,
             write_session,
             resize_session,

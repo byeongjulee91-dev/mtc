@@ -166,6 +166,17 @@
     bus.busyCounts = counts;
   });
 
+  // Refresh the active project's git-tracked file count whenever the selected
+  // project (its path) changes. Cached per path in state, so revisiting a
+  // project shows its count without re-spawning git. Gated on `app.loaded` for
+  // the same reason as the warm effect — `app.data` is the empty default until
+  // init resolves, and standalone mode has no backend to count with.
+  $effect(() => {
+    void app.activeProject?.path; // track the active path
+    if (!app.loaded) return;
+    void app.refreshGitFileCount();
+  });
+
   // Side panels / terminal key handlers act on the *active* runtime. These read
   // current state at call time, so a single assignment is enough.
   bus.focusDir = (dir) => activeRuntime()?.focusNeighbor(dir);
@@ -251,6 +262,12 @@
 </script>
 
 <div class="profile-bar">
+  {#if app.gitFileCount !== null}
+    <span
+      class="git-count"
+      title="{app.gitFileCount} git-tracked 파일 · {app.activeProject?.path ?? ''}"
+    >🗂 {app.gitFileCount}</span>
+  {/if}
   <button
     class="btn icon"
     aria-label="새 터미널 분할 방향"
