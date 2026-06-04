@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, untrack } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
   import '@xterm/xterm/css/xterm.css';
@@ -48,56 +48,49 @@
   const ENTER_DELAY_MS = 75;
 
   // --- busy detection ---
-  // We call a session "busy" while its PTY is producing output and "idle" once it
-  // falls silent. claude/codex stream tokens (and animate a spinner) while they
-  // work, so output keeps the pane busy; when they finish and wait at the prompt
-  // the stream stops and this timer flips it back. ~700ms rides over the small
-  // gaps between streamed chunks without lagging noticeably behind a done task.
-  const BUSY_IDLE_MS = 700;
-  let busyTimer: ReturnType<typeof setTimeout> | null = null;
+  // "Busy" is *inferred* from raw PTY output — there's no signal from claude/codex
+  // that says "I'm working", so a session producing output is treated as busy and
+  // a silent one as idle. The hard part is that non-work UI events make a TUI
+  // repaint its whole screen, and that repaint is output indistinguishable, byte
+  // for byte, from real work. The worst case is switching projects: it flips a
+  // pane's visibility (fit/SIGWINCH) and focus (focus-report restyle, DECSET 1004),
+  // so claude/codex repaint and the project you just left would flash "busy".
+  //
+  // We separate the two by their *shape* rather than by timing windows (a window
+  // can't know when a redraw will land): a repaint is a single short burst, while
+  // real work streams output continuously for much longer. So we only declare a
+  // pane busy once output has been *sustained* for BUSY_CONFIRM_MS — long enough
+  // that a one-shot repaint never qualifies, short enough that genuine work lights
+  // the dot promptly. A gap longer than BUSY_GAP_MS starts a fresh run, so a
+  // repaint burst is always measured on its own and falls short of the bar.
+  const BUSY_IDLE_MS = 700; // silence before a busy pane is called idle again
+  const BUSY_CONFIRM_MS = 450; // output must be sustained this long to count as busy
+  const BUSY_GAP_MS = 500; // a gap longer than this restarts the sustained-output run
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let isBusy = false;
+  let runStart = 0; // when the current uninterrupted output run began
+  let lastOutput = 0; // timestamp of the most recent output chunk
 
-  // TUI apps (claude/codex) repaint their whole screen on certain UI events, and
-  // that redraw is a burst of PTY output that isn't real work. The big offender is
-  // switching projects: it flips a pane's visibility (→ fit/SIGWINCH redraw on the
-  // shown *and* hidden pane) and its focus (→ a focus-report restyle, DECSET 1004),
-  // so the project you just left would flash "busy". Window/font resizes redraw
-  // too. So whenever we trigger one of these, ignore output for a short window.
-  // Background panes that are genuinely streaming aren't affected for long — they
-  // resume marking busy as soon as the window passes (just a brief delay before
-  // the dot reappears after a switch).
-  const BUSY_SUPPRESS_MS = 600;
-  let suppressBusyUntil = 0;
-  function suppressBusyBriefly() {
-    suppressBusyUntil = Date.now() + BUSY_SUPPRESS_MS;
-  }
-
-  // A project switch flips this pane's visibility and/or focus. Suppress busy for
-  // a beat after either changes so the resulting redraw doesn't flash the dot.
-  let prevVisible = untrack(() => visible);
-  let prevActive = untrack(() => active);
-  $effect(() => {
-    if (visible !== prevVisible || active !== prevActive) {
-      prevVisible = visible;
-      prevActive = active;
-      suppressBusyBriefly();
-    }
-  });
-
-  // Called for every chunk of PTY output: report busy on the leading edge, then
-  // (re)arm the idle timer that clears it after a quiet spell. Output arriving in
-  // the suppression window (just after a switch/resize) is a redraw, not work.
+  // Called for every chunk of PTY output. Extends the current output run (or
+  // starts a new one after a gap), flips to busy once that run is long enough to
+  // rule out a repaint, and arms the idle timer that clears busy after silence.
   function noteOutput() {
-    if (Date.now() < suppressBusyUntil) return;
-    if (!isBusy) {
+    const now = Date.now();
+    if (now - lastOutput > BUSY_GAP_MS) runStart = now;
+    lastOutput = now;
+
+    if (!isBusy && now - runStart >= BUSY_CONFIRM_MS) {
       isBusy = true;
       onbusy?.(true);
     }
-    if (busyTimer) clearTimeout(busyTimer);
-    busyTimer = setTimeout(() => {
-      busyTimer = null;
-      isBusy = false;
-      onbusy?.(false);
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      runStart = 0;
+      if (isBusy) {
+        isBusy = false;
+        onbusy?.(false);
+      }
     }, BUSY_IDLE_MS);
   }
 
@@ -224,11 +217,7 @@
     const raf = requestAnimationFrame(async () => {
       if (cancelled || !term) return;
       safeFit();
-      if (sessionId !== null) {
-        suppressBusyBriefly();
-        await resizeSession(sessionId, term.cols, term.rows);
-        suppressBusyBriefly(); // re-stamp: redraw lands after the SIGWINCH round-trip
-      }
+      if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
       if (!cancelled) term?.scrollToBottom();
     });
     return () => {
@@ -294,10 +283,7 @@
 
     resizeObs = new ResizeObserver(() => {
       safeFit();
-      if (term && sessionId !== null) {
-        suppressBusyBriefly();
-        void resizeSession(sessionId, term.cols, term.rows);
-      }
+      if (term && sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
     });
     resizeObs.observe(host);
   });
@@ -319,10 +305,7 @@
     if (term.options.fontSize === size) return;
     term.options.fontSize = size;
     safeFit();
-    if (sessionId !== null) {
-      suppressBusyBriefly();
-      void resizeSession(sessionId, term.cols, term.rows);
-    }
+    if (sessionId !== null) void resizeSession(sessionId, term.cols, term.rows);
   });
 
   // Ctrl + wheel zooms the terminal font. Mutating shared state triggers the
@@ -424,7 +407,7 @@
     resizeObs?.disconnect();
     // Stop the idle timer and clear any lingering busy state so a pane that's
     // closed (or parked) mid-stream doesn't leave its project marked working.
-    if (busyTimer) clearTimeout(busyTimer);
+    if (idleTimer) clearTimeout(idleTimer);
     if (isBusy) onbusy?.(false);
     // If this pane owned the shared sender, clear it so panels don't write to
     // a closed session.
