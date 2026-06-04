@@ -355,6 +355,8 @@ button {
 .chip-select {
   appearance: none;
   -webkit-appearance: none;
+  text-align: center;
+  text-align-last: center;
 }
 /* An assigned shortcut reads as an accent affordance (matching the former hotkey
    badge); unassigned stays muted ("No hotkey"). */
