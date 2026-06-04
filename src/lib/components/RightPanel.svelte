@@ -6,6 +6,7 @@
 
   let tab = $state<'skills' | 'profiles'>('skills');
   let newRoot = $state('');
+  let skillQuery = $state('');
   let selectedSkill = $state<Skill | null>(null);
   /** Explicit per-group collapse choices (by root). Absent = use the default. */
   let groupOverride = $state<Record<string, boolean>>({});
@@ -22,6 +23,26 @@
     if (tab !== 'skills' || app.data.rightPanelCollapsed || !app.loaded) return;
     void app.refreshSkills();
   });
+
+  /**
+   * Groups narrowed by the search box. A skill matches when the query (case-
+   * insensitive) is a substring of its name or description; groups with no
+   * surviving skills are dropped. An empty query returns every group untouched.
+   */
+  const filteredGroups = $derived.by(() => {
+    const q = skillQuery.trim().toLowerCase();
+    if (!q) return app.skillGroups;
+    return app.skillGroups
+      .map((g) => ({
+        ...g,
+        skills: g.skills.filter(
+          (s) => s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q),
+        ),
+      }))
+      .filter((g) => g.skills.length > 0);
+  });
+  /** While searching, ignore collapse state so every match stays visible. */
+  const searching = $derived(skillQuery.trim().length > 0);
 
   function insertSkill(s: Skill) {
     bus.send('/' + s.name, false);
@@ -110,14 +131,22 @@
         <button class="btn" title="Browse folder" onclick={browseRoot}>…</button>
       </div>
       <div class="muted" style="font-size:11px">Auto-detects ~/.claude/skills (host + WSL) and the active project's .claude/skills.</div>
+      <div class="search-row">
+        <input class="field" placeholder="Search skills…" bind:value={skillQuery} />
+        {#if searching}
+          <button class="btn icon" title="Clear search" onclick={() => (skillQuery = '')}>✕</button>
+        {/if}
+      </div>
     </div>
 
     {#if app.skillGroups.length === 0}
       <div class="empty">No skills found.</div>
+    {:else if filteredGroups.length === 0}
+      <div class="empty">No skills match “{skillQuery.trim()}”.</div>
     {:else}
-      {#each app.skillGroups as g (g.root)}
+      {#each filteredGroups as g (g.root)}
         {@const blocked = groupBlocked(g)}
-        {@const folded = isCollapsed(g)}
+        {@const folded = !searching && isCollapsed(g)}
         <button
           class="group-head"
           class:blocked
@@ -236,6 +265,16 @@
 </div>
 
 <style>
+  /* Skill search box: full-width field with an optional clear button. */
+  .search-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .search-row .field {
+    flex: 1;
+  }
+
   /* Skill-group header (one per detected root) — click to collapse/expand. */
   .group-head {
     display: flex;
