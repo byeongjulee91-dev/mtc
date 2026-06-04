@@ -119,6 +119,14 @@
       runStart = now;
       runChunks = 0;
       runBytes = 0;
+      // The previous run is over. A short fresh burst (e.g. a project-switch
+      // repaint that lands while a just-finished session's idle timer is still
+      // running) must NOT inherit that busy state, so drop it now — this run
+      // re-confirms below only if it is itself sustained past BUSY_CONFIRM_MS.
+      if (isBusy) {
+        isBusy = false;
+        onbusy?.(false);
+      }
     }
     lastOutput = now;
     runChunks++;
