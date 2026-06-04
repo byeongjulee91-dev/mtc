@@ -162,17 +162,27 @@ export function normalizeAppData(raw: (Partial<AppData> & LegacyAppData) | null 
   const base = defaultAppData();
   if (!raw) return base;
 
+  // Project switch shortcuts (Ctrl+<digit>) are unique across projects, just
+  // like query hotkeys: if two projects claim the same digit, the first keeps
+  // it and the rest are cleared. Older state (no `hotkey`) loads with `null`.
+  const takenProjectHotkeys = new Set<number>();
   const projects: Project[] = Array.isArray(raw.projects)
-    ? raw.projects.map((p) => ({
-        id: p.id,
-        name: typeof p.name === 'string' ? p.name : '',
-        path: typeof p.path === 'string' ? p.path : '',
-        todos: Array.isArray(p.todos) ? p.todos : [],
-        profiles: Array.isArray(p.profiles)
-          ? p.profiles.filter((pr) => pr && typeof pr.id === 'string').map(normalizeProfile)
-          : [],
-        layout: normalizeLayout((p as { layout?: unknown }).layout),
-      }))
+    ? raw.projects.map((p) => {
+        let hotkey = normalizeHotkey((p as { hotkey?: unknown }).hotkey);
+        if (hotkey !== null && takenProjectHotkeys.has(hotkey)) hotkey = null;
+        if (hotkey !== null) takenProjectHotkeys.add(hotkey);
+        return {
+          id: p.id,
+          name: typeof p.name === 'string' ? p.name : '',
+          path: typeof p.path === 'string' ? p.path : '',
+          hotkey,
+          todos: Array.isArray(p.todos) ? p.todos : [],
+          profiles: Array.isArray(p.profiles)
+            ? p.profiles.filter((pr) => pr && typeof pr.id === 'string').map(normalizeProfile)
+            : [],
+          layout: normalizeLayout((p as { layout?: unknown }).layout),
+        };
+      })
     : migrateLegacyProjects(raw);
 
   const activeProjectId =
@@ -218,6 +228,7 @@ function migrateLegacyProjects(raw: LegacyAppData): Project[] {
         id: f.id,
         name: typeof f.label === 'string' ? f.label : '',
         path: f.path,
+        hotkey: null,
         todos: [],
         profiles: [],
         layout: null,
@@ -226,7 +237,7 @@ function migrateLegacyProjects(raw: LegacyAppData): Project[] {
   const legacyTodos = Array.isArray(raw.todos) ? raw.todos : [];
   if (legacyTodos.length) {
     if (projects.length === 0) {
-      projects.push({ id: uid(), name: 'General', path: '', todos: [], profiles: [], layout: null });
+      projects.push({ id: uid(), name: 'General', path: '', hotkey: null, todos: [], profiles: [], layout: null });
     }
     projects[0].todos = legacyTodos;
   }

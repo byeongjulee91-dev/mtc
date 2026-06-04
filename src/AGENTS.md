@@ -14,7 +14,7 @@ terminals, skills/profiles) and talks to the Rust backend over Tauri IPC.
 | File | Description |
 |------|-------------|
 | `main.ts` | Entry point. Mounts `App.svelte` into `#app` using Svelte 5's `mount()` API and imports global CSS. |
-| `App.svelte` | Root layout: a CSS grid of `LeftPanel`, `CenterPanel`, and `RightPanel`. Calls `app.init()` on mount and wires the global Alt+digit query shortcuts. |
+| `App.svelte` | Root layout: a CSS grid of `LeftPanel`, `CenterPanel`, and `RightPanel`. Calls `app.init()` on mount and wires the global digit shortcuts (Alt+digit sends the bound query to the focused terminal; Ctrl+digit switches to the bound project). |
 | `app.css` | Global styles and CSS custom properties (the dark theme tokens: `--bg`, `--panel`, `--border-focus`, panel widths, etc.). The `.app` grid template lives here. The design system these tokens define is documented in the root `DESIGN.md`. |
 
 ## Subdirectories

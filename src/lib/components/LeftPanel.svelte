@@ -2,9 +2,10 @@
   import { app } from '../state.svelte';
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
   import Modal from './Modal.svelte';
-  import type { SavedQuery } from '../types';
+  import type { Project, SavedQuery } from '../types';
 
-  // Digits available as Alt+<digit> query shortcuts (see App.svelte's handler).
+  // Digits 1–9, offered as both the Alt+<digit> query shortcuts and the
+  // Ctrl+<digit> project-switch shortcuts (see App.svelte's handler).
   const HOTKEY_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   let tab = $state<'project' | 'query'>('project');
@@ -162,6 +163,38 @@
     hotkeyConflict = null;
   }
 
+  // Project switch shortcuts mirror the query ones: Ctrl+<digit> selects a
+  // project, digits are unique across projects, and reassigning a digit another
+  // project owns prompts first (rather than silently stealing it).
+  let projectHotkeyConflict = $state<{
+    pId: string;
+    pName: string;
+    digit: number;
+    otherName: string;
+  } | null>(null);
+  function changeProjectHotkey(e: Event & { currentTarget: HTMLSelectElement }, p: Project) {
+    const digit = e.currentTarget.value ? Number(e.currentTarget.value) : null;
+    if (digit !== null) {
+      const other = app.data.projects.find((x) => x.id !== p.id && x.hotkey === digit);
+      if (other) {
+        // Revert the visible chip to its current value and ask before stealing.
+        e.currentTarget.value = p.hotkey === null ? '' : String(p.hotkey);
+        projectHotkeyConflict = {
+          pId: p.id,
+          pName: p.name || p.path,
+          digit,
+          otherName: other.name || other.path,
+        };
+        return;
+      }
+    }
+    app.setProjectHotkey(p.id, digit);
+  }
+  function confirmProjectHotkeyReassign() {
+    if (projectHotkeyConflict) app.setProjectHotkey(projectHotkeyConflict.pId, projectHotkeyConflict.digit);
+    projectHotkeyConflict = null;
+  }
+
   let copiedId = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   async function copyText(id: string, text: string) {
@@ -219,6 +252,23 @@
               >
             {/if}
           {/if}
+          <!-- Ctrl+<digit> switch shortcut, mirroring the query hotkey chip.
+               {#key} re-creates the <select> whenever the bound hotkey changes
+               (a steal, or a confirmed reassign) so its displayed value
+               re-syncs even after we revert it by hand on a clash. -->
+          {#key p.hotkey}
+            <select
+              class="chip-select"
+              class:assigned={p.hotkey !== null}
+              title="Switch shortcut — Ctrl+digit selects this project"
+              onchange={(e) => changeProjectHotkey(e, p)}
+            >
+              <option value="" selected={p.hotkey === null}>No key</option>
+              {#each HOTKEY_DIGITS as d}
+                <option value={d} selected={p.hotkey === d}>Ctrl+{d}</option>
+              {/each}
+            </select>
+          {/key}
           <button class="btn icon" title="Delete" onclick={() => app.removeProject(p.id)}>✕</button>
         </div>
       {/each}
@@ -452,6 +502,22 @@
       <div style="display:flex;gap:6px;justify-content:flex-end">
         <button class="btn" onclick={() => (hotkeyConflict = null)}>Cancel</button>
         <button class="btn accent" onclick={confirmHotkeyReassign}>Reassign</button>
+      </div>
+    </div>
+  </Modal>
+{/if}
+
+{#if projectHotkeyConflict}
+  <Modal title="Reassign shortcut?" onclose={() => (projectHotkeyConflict = null)}>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <p style="margin:0;line-height:1.5">
+        <span class="kbd">Ctrl+{projectHotkeyConflict.digit}</span> is already assigned to
+        “{projectHotkeyConflict.otherName}”. Move it to “{projectHotkeyConflict.pName}”? The other
+        project will be left with no shortcut.
+      </p>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn" onclick={() => (projectHotkeyConflict = null)}>Cancel</button>
+        <button class="btn accent" onclick={confirmProjectHotkeyReassign}>Reassign</button>
       </div>
     </div>
   </Modal>

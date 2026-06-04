@@ -8,20 +8,35 @@
 
   onMount(() => {
     void app.init();
-    // Global query shortcuts: Alt+1..9 sends the bound query to the focused
-    // terminal. We listen on the window in the capture phase and use the
-    // physical key (`e.code` = "Digit1".."Digit9") so layout remapping doesn't
-    // matter; capturing here also stops xterm from forwarding the keystroke to
-    // the PTY before we can act on it.
+    // Global digit shortcuts: Alt+1..9 sends the bound query to the focused
+    // terminal; Ctrl+1..9 switches to the bound project. We listen on the window
+    // in the capture phase and use the physical key (`e.code` =
+    // "Digit1".."Digit9") so layout remapping doesn't matter; capturing here
+    // also stops xterm from forwarding the keystroke to the PTY before we can
+    // act on it. An unbound digit is left alone (no preventDefault) so it still
+    // reaches the terminal.
     function onHotkey(e: KeyboardEvent) {
-      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.metaKey || e.shiftKey) return;
       const m = /^Digit([1-9])$/.exec(e.code);
       if (!m) return;
-      const q = app.queryForHotkey(Number(m[1]));
-      if (!q) return;
-      e.preventDefault();
-      e.stopPropagation();
-      bus.send(q.text, q.submit);
+      const digit = Number(m[1]);
+      // Alt+digit — insert the bound query into the focused terminal.
+      if (e.altKey && !e.ctrlKey) {
+        const q = app.queryForHotkey(digit);
+        if (!q) return;
+        e.preventDefault();
+        e.stopPropagation();
+        bus.send(q.text, q.submit);
+        return;
+      }
+      // Ctrl+digit — switch to (select) the bound project.
+      if (e.ctrlKey && !e.altKey) {
+        const p = app.projectForHotkey(digit);
+        if (!p) return;
+        e.preventDefault();
+        e.stopPropagation();
+        app.selectProject(p.id);
+      }
     }
     window.addEventListener('keydown', onHotkey, { capture: true });
 

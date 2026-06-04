@@ -108,6 +108,13 @@ export interface Project {
   /** Friendly name shown in the list. Falls back to `path` when empty. */
   name: string;
   path: string;
+  /**
+   * Optional keyboard shortcut digit (1–9). When set, pressing `Ctrl+<digit>`
+   * switches to (selects) this project. A digit is unique across all projects —
+   * assigning it to one project clears it from any other. `null` = no shortcut.
+   * Mirrors `SavedQuery.hotkey`, but on the `Ctrl` modifier instead of `Alt`.
+   */
+  hotkey: number | null;
   todos: Todo[];
   /**
    * Profiles scoped to this project. They appear after the global

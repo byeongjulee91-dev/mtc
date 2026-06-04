@@ -69,7 +69,7 @@ class AppState {
     // De-dupe on the path so the same directory isn't added twice.
     const existing = this.data.projects.find((p) => p.path === trimmed);
     if (existing) return existing;
-    const project: Project = { id: uid(), name: name.trim(), path: trimmed, todos: [], profiles: [], layout: null };
+    const project: Project = { id: uid(), name: name.trim(), path: trimmed, hotkey: null, todos: [], profiles: [], layout: null };
     this.data.projects.push(project);
     this.scheduleSave();
     return project;
@@ -85,6 +85,26 @@ class AppState {
     // The active project's `.claude/skills` is auto-detected, but discovery is
     // driven lazily by the Skills panel (it spawns `wsl.exe`) — switching
     // projects no longer scans on its own.
+  }
+  /**
+   * Bind (or clear, with `null`) the `Ctrl+<digit>` switch shortcut for a
+   * project. Hotkeys are unique across all projects, so assigning a digit that
+   * another project holds first releases it there. Mirrors `setQueryHotkey`.
+   */
+  setProjectHotkey(id: string, hotkey: number | null): void {
+    const p = this.data.projects.find((x) => x.id === id);
+    if (!p) return;
+    if (hotkey !== null) {
+      for (const other of this.data.projects) {
+        if (other.id !== id && other.hotkey === hotkey) other.hotkey = null;
+      }
+    }
+    p.hotkey = hotkey;
+    this.scheduleSave();
+  }
+  /** The project bound to a given `Ctrl+<digit>` shortcut, or null if unassigned. */
+  projectForHotkey(digit: number): Project | null {
+    return this.data.projects.find((p) => p.hotkey === digit) ?? null;
   }
 
   // --- per-workspace terminal layout (persisted; drives restore on launch) ---
