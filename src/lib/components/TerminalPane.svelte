@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
   import '@xterm/xterm/css/xterm.css';
@@ -57,22 +57,36 @@
   let busyTimer: ReturnType<typeof setTimeout> | null = null;
   let isBusy = false;
 
-  // A resize (fit + SIGWINCH) makes TUI apps repaint their whole screen, which is
-  // a burst of PTY output that isn't real work. Switching projects shows a hidden
-  // pane → it re-fits → that redraw would otherwise flash the "busy" dot. So
-  // ignore output for a short window after we trigger a resize. Background panes
-  // (where the dot actually matters) aren't resized, so real activity there is
-  // unaffected; a genuinely-streaming pane just resumes marking busy once the
-  // window passes.
-  const RESIZE_QUIET_MS = 600;
+  // TUI apps (claude/codex) repaint their whole screen on certain UI events, and
+  // that redraw is a burst of PTY output that isn't real work. The big offender is
+  // switching projects: it flips a pane's visibility (→ fit/SIGWINCH redraw on the
+  // shown *and* hidden pane) and its focus (→ a focus-report restyle, DECSET 1004),
+  // so the project you just left would flash "busy". Window/font resizes redraw
+  // too. So whenever we trigger one of these, ignore output for a short window.
+  // Background panes that are genuinely streaming aren't affected for long — they
+  // resume marking busy as soon as the window passes (just a brief delay before
+  // the dot reappears after a switch).
+  const BUSY_SUPPRESS_MS = 600;
   let suppressBusyUntil = 0;
-  function markResize() {
-    suppressBusyUntil = Date.now() + RESIZE_QUIET_MS;
+  function suppressBusyBriefly() {
+    suppressBusyUntil = Date.now() + BUSY_SUPPRESS_MS;
   }
+
+  // A project switch flips this pane's visibility and/or focus. Suppress busy for
+  // a beat after either changes so the resulting redraw doesn't flash the dot.
+  let prevVisible = untrack(() => visible);
+  let prevActive = untrack(() => active);
+  $effect(() => {
+    if (visible !== prevVisible || active !== prevActive) {
+      prevVisible = visible;
+      prevActive = active;
+      suppressBusyBriefly();
+    }
+  });
 
   // Called for every chunk of PTY output: report busy on the leading edge, then
   // (re)arm the idle timer that clears it after a quiet spell. Output arriving in
-  // the quiet window just after a resize is the redraw, not work — skip it.
+  // the suppression window (just after a switch/resize) is a redraw, not work.
   function noteOutput() {
     if (Date.now() < suppressBusyUntil) return;
     if (!isBusy) {
@@ -211,9 +225,9 @@
       if (cancelled || !term) return;
       safeFit();
       if (sessionId !== null) {
-        markResize();
+        suppressBusyBriefly();
         await resizeSession(sessionId, term.cols, term.rows);
-        markResize(); // re-stamp: the redraw lands after the SIGWINCH round-trip
+        suppressBusyBriefly(); // re-stamp: redraw lands after the SIGWINCH round-trip
       }
       if (!cancelled) term?.scrollToBottom();
     });
@@ -281,7 +295,7 @@
     resizeObs = new ResizeObserver(() => {
       safeFit();
       if (term && sessionId !== null) {
-        markResize();
+        suppressBusyBriefly();
         void resizeSession(sessionId, term.cols, term.rows);
       }
     });
@@ -306,7 +320,7 @@
     term.options.fontSize = size;
     safeFit();
     if (sessionId !== null) {
-      markResize();
+      suppressBusyBriefly();
       void resizeSession(sessionId, term.cols, term.rows);
     }
   });
