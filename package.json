@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Multi-Terminal Claude Code — a Tauri desktop app orchestrating WSL claude/codex sessions",
   "type": "module",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": ">=18",
+    "npm": ">=11"
+  },
   "scripts": {
     "dev": "vite",
     "build": "svelte-check --tsconfig ./tsconfig.json && vite build",
