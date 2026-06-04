@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, untrack } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
   import '@xterm/xterm/css/xterm.css';
@@ -71,54 +71,13 @@
   let runStart = 0; // when the current uninterrupted output run began
   let lastOutput = 0; // timestamp of the most recent output chunk
 
-  // TEMP INSTRUMENTATION — measure real redraw-burst vs work-run shapes so we can
-  // tune BUSY_CONFIRM_MS. Logs each completed output run (duration / chunks /
-  // bytes / how long after the last visibility-or-focus change it began) and each
-  // transition. Flip BUSY_DEBUG to false (or rip this block out) once tuned.
-  const BUSY_DEBUG = true;
-  let runChunks = 0;
-  let runBytes = 0;
-  let lastTransitionAt = 0;
-  function logRun(reason: string) {
-    if (!BUSY_DEBUG || runStart === 0) return;
-    const sinceSwitch = lastTransitionAt ? runStart - lastTransitionAt : -1;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[busy] ${profile.name}: run=${lastOutput - runStart}ms chunks=${runChunks} bytes=${runBytes} ` +
-        `confirmed=${isBusy} sinceSwitch=${sinceSwitch}ms (${reason})`,
-    );
-  }
-  // Log visibility/focus transitions so a run can be correlated to a project
-  // switch (untrack the initial snapshot to avoid the state_referenced_locally
-  // warning — we want the previous value, not a reactive read).
-  let dbgPrevVisible = untrack(() => visible);
-  let dbgPrevActive = untrack(() => active);
-  $effect(() => {
-    const v = visible;
-    const a = active;
-    if (v !== dbgPrevVisible || a !== dbgPrevActive) {
-      lastTransitionAt = Date.now();
-      if (BUSY_DEBUG) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[busy] ${profile.name}: transition visible ${dbgPrevVisible}->${v} active ${dbgPrevActive}->${a}`,
-        );
-      }
-      dbgPrevVisible = v;
-      dbgPrevActive = a;
-    }
-  });
-
   // Called for every chunk of PTY output. Extends the current output run (or
   // starts a new one after a gap), flips to busy once that run is long enough to
   // rule out a repaint, and arms the idle timer that clears busy after silence.
-  function noteOutput(len: number) {
+  function noteOutput() {
     const now = Date.now();
     if (now - lastOutput > BUSY_GAP_MS) {
-      logRun('gap'); // the previous run ended before this fresh burst
       runStart = now;
-      runChunks = 0;
-      runBytes = 0;
       // The previous run is over. A short fresh burst (e.g. a project-switch
       // repaint that lands while a just-finished session's idle timer is still
       // running) must NOT inherit that busy state, so drop it now — this run
@@ -129,8 +88,6 @@
       }
     }
     lastOutput = now;
-    runChunks++;
-    runBytes += len;
 
     if (!isBusy && now - runStart >= BUSY_CONFIRM_MS) {
       isBusy = true;
@@ -139,7 +96,6 @@
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       idleTimer = null;
-      logRun('idle');
       runStart = 0;
       if (isBusy) {
         isBusy = false;
@@ -319,7 +275,7 @@
       sessionId = await createSession(profile, term.cols, term.rows, {
         onData: (bytes) => {
           term?.write(bytes);
-          noteOutput(bytes.length);
+          noteOutput();
         },
         onExit: () => {
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
