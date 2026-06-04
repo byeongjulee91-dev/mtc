@@ -263,10 +263,11 @@
 
 <div class="profile-bar">
   {#if app.gitFileCount !== null}
-    <span
+    <button
       class="git-count"
-      title="{app.gitFileCount} git-tracked 파일 · {app.activeProject?.path ?? ''}"
-    >🗂 {app.gitFileCount}</span>
+      title="{app.gitFileCount} git-tracked 파일 · {app.activeProject?.path ?? ''} · 클릭하면 다시 셈"
+      onclick={() => app.refreshGitFileCount(true)}
+    >🗂 {app.gitFileCount}</button>
   {/if}
   <button
     class="btn icon"

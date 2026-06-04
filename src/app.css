@@ -470,7 +470,8 @@ textarea.field {
 }
 
 /* Git-tracked file count for the active project — a quiet pill at the left of
-   the top profile bar (mirrors the .cwd-hint treatment on the right). */
+   the top profile bar (mirrors the .cwd-hint treatment on the right). Clicking
+   it re-counts (otherwise it refreshes on project switch / window focus). */
 .git-count {
   flex: none;
   display: inline-flex;
@@ -481,9 +482,15 @@ textarea.field {
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--muted);
+  font: inherit;
   font-size: 11px;
+  line-height: 1;
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
+}
+.git-count:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 /* center / terminals */

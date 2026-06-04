@@ -379,14 +379,16 @@ class AppState {
    * Refresh `gitFileCount` for the active project's path. A no-op (clears to
    * `null`) in standalone mode or with no active project. Cached per path; a
    * slow count is discarded if the active project changed before it resolved.
+   * `force` (window-focus / badge click) bypasses the cache and re-counts, so a
+   * count kept current as files change rather than only on project switch.
    */
-  async refreshGitFileCount(): Promise<void> {
+  async refreshGitFileCount(force = false): Promise<void> {
     const path = this.activeProject?.path ?? '';
     if (this.standalone || !path) {
       this.gitFileCount = null;
       return;
     }
-    if (this.gitCountCache.has(path)) {
+    if (!force && this.gitCountCache.has(path)) {
       this.gitFileCount = this.gitCountCache.get(path) ?? null;
       return;
     }
