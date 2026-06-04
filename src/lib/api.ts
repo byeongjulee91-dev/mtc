@@ -46,13 +46,15 @@ export async function discoverSkills(
 // --- git ---
 
 /**
- * Count git-tracked files in a project directory. Resolves to the count
- * (possibly `0`), or `null` for an empty path. On Windows a Linux-style path is
- * counted inside WSL. Rejects with a reason string when git fails (not a repo,
- * git not on PATH, dubious ownership, …) so the caller can surface/log it.
+ * Count modified (changed) git-tracked files in a project directory — staged or
+ * unstaged changes to tracked files, untracked excluded (`git status
+ * --porcelain -uno`). Resolves to the count (possibly `0`), or `null` for an
+ * empty path. On Windows a Linux-style path is counted inside WSL. Rejects with
+ * a reason string when git fails (not a repo, git not on PATH, dubious
+ * ownership, …) so the caller can surface/log it.
  */
-export async function countGitFiles(path: string): Promise<number | null> {
-  return invoke<number | null>('count_git_files', { path });
+export async function countGitModified(path: string): Promise<number | null> {
+  return invoke<number | null>('count_git_modified', { path });
 }
 
 // --- terminal sessions ---

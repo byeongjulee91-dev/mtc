@@ -166,15 +166,14 @@
     bus.busyCounts = counts;
   });
 
-  // Refresh the active project's git-tracked file count whenever the selected
-  // project (its path) changes. Cached per path in state, so revisiting a
-  // project shows its count without re-spawning git. Gated on `app.loaded` for
-  // the same reason as the warm effect — `app.data` is the empty default until
-  // init resolves, and standalone mode has no backend to count with.
+  // Refresh the active project's modified-file count whenever the selected
+  // project (its path) changes. Gated on `app.loaded` for the same reason as the
+  // warm effect — `app.data` is the empty default until init resolves, and
+  // standalone mode has no backend to count with.
   $effect(() => {
     void app.activeProject?.path; // track the active path
     if (!app.loaded) return;
-    void app.refreshGitFileCount();
+    void app.refreshGitModifiedCount();
   });
 
   // Side panels / terminal key handlers act on the *active* runtime. These read
@@ -262,19 +261,6 @@
 </script>
 
 <div class="profile-bar">
-  {#if app.gitFileCount !== null}
-    <button
-      class="git-count"
-      title="{app.gitFileCount} git-tracked 파일 · {app.activeProject?.path ?? ''} · 클릭하면 다시 셈"
-      onclick={() => app.refreshGitFileCount(true)}
-    >🗂 {app.gitFileCount}</button>
-  {:else if app.gitCountError}
-    <button
-      class="git-count err"
-      title="git 카운트 실패: {app.gitCountError} · {app.activeProject?.path ?? ''} · 클릭하면 다시 시도"
-      onclick={() => app.refreshGitFileCount(true)}
-    >🗂 ⚠</button>
-  {/if}
   <button
     class="btn icon"
     aria-label="새 터미널 분할 방향"
@@ -290,6 +276,19 @@
     </button>
   {/each}
   <span style="flex:1"></span>
+  {#if app.gitModifiedCount !== null}
+    <button
+      class="git-count"
+      title="{app.gitModifiedCount} modified · git-tracked 변경 파일 · {app.activeProject?.path ?? ''} · 클릭하면 다시 셈"
+      onclick={() => app.refreshGitModifiedCount()}
+    >✎ {app.gitModifiedCount}</button>
+  {:else if app.gitCountError}
+    <button
+      class="git-count err"
+      title="git 카운트 실패: {app.gitCountError} · {app.activeProject?.path ?? ''} · 클릭하면 다시 시도"
+      onclick={() => app.refreshGitModifiedCount()}
+    >✎ ⚠</button>
+  {/if}
   {#if app.activeProject?.path}
     <span class="cwd-hint" title="New sessions open in {app.activeProject.path}">
       📁 {app.activeProject.name || app.activeProject.path}

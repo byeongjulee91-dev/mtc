@@ -1,6 +1,6 @@
 import type { AppData, LayoutNode, Profile, Skill, SkillGroup, Todo, SavedQuery, Project } from './types';
 import { DEFAULT_FONT_SIZE, UNFILED_KEY, clampFontSize, clampLeftWidth, clampRightWidth, defaultAppData, normalizeAppData, uid } from './defaults';
-import { loadAppData, saveAppData, discoverSkills, countGitFiles } from './api';
+import { loadAppData, saveAppData, discoverSkills, countGitModified } from './api';
 
 /**
  * Reactive application state (Svelte 5 runes). Holds persisted data (projects
@@ -15,11 +15,12 @@ class AppState {
   /** True when running outside Tauri (e.g. `vite` in a plain browser). */
   standalone = $state(false);
   /**
-   * Number of git-tracked files in the active project's directory, or `null`
-   * when unknown (no project, not a git repo, standalone, or git unavailable).
-   * Refreshed when the active project changes; results are cached per path.
+   * Number of modified (changed) git-tracked files in the active project's
+   * directory, or `null` when unknown (no project, not a git repo, standalone,
+   * or git unavailable). Re-counted on project switch / window focus / click —
+   * not cached, since it changes as files are edited.
    */
-  gitFileCount = $state<number | null>(null);
+  gitModifiedCount = $state<number | null>(null);
   /**
    * Reason the count failed for a *real* error (git not on PATH, dubious
    * ownership, …) — surfaced as a ⚠ badge so the failure isn't silent. Stays
@@ -376,42 +377,32 @@ class AppState {
     }
   }
 
-  // --- git-tracked file count (for the active project's path) ---
-  // Counting spawns `git` (inside WSL on Windows), so results are cached per
-  // path: switching back to a visited project shows the cached count without
-  // re-spawning, and a stale async result is dropped if a newer switch won.
+  // --- git "modified" count (changed tracked files in the active project) ---
+  // The count changes as the user edits, so it is NOT cached: every refresh
+  // (project switch, window focus, badge click) re-counts. The sequence guard
+  // drops a slow result if the active project changed before it resolved.
   private gitCountSeq = 0;
-  private gitCountCache = new Map<string, number | null>();
   /**
-   * Refresh `gitFileCount` for the active project's path. A no-op (clears to
-   * `null`) in standalone mode or with no active project. Cached per path; a
-   * slow count is discarded if the active project changed before it resolved.
-   * `force` (window-focus / badge click) bypasses the cache and re-counts, so a
-   * count kept current as files change rather than only on project switch.
+   * Refresh `gitModifiedCount` for the active project's path. A no-op (clears to
+   * `null`) in standalone mode or with no active project.
    */
-  async refreshGitFileCount(force = false): Promise<void> {
+  async refreshGitModifiedCount(): Promise<void> {
     const path = this.activeProject?.path ?? '';
     if (this.standalone || !path) {
-      this.gitFileCount = null;
-      this.gitCountError = null;
-      return;
-    }
-    if (!force && this.gitCountCache.has(path)) {
-      this.gitFileCount = this.gitCountCache.get(path) ?? null;
+      this.gitModifiedCount = null;
       this.gitCountError = null;
       return;
     }
     const seq = ++this.gitCountSeq;
     try {
-      const count = await countGitFiles(path);
+      const count = await countGitModified(path);
       if (seq !== this.gitCountSeq) return; // a newer refresh already won
-      this.gitCountCache.set(path, count);
-      this.gitFileCount = count;
+      this.gitModifiedCount = count;
       this.gitCountError = null;
     } catch (e) {
       if (seq !== this.gitCountSeq) return;
       const msg = String((e as { message?: string })?.message ?? e);
-      this.gitFileCount = null;
+      this.gitModifiedCount = null;
       // "not a git repository" is the normal no-badge case; anything else
       // (git not found, dubious ownership, …) is surfaced as a ⚠ badge + log.
       this.gitCountError = /not a git repository/i.test(msg) ? null : msg;

@@ -25,12 +25,11 @@
     }
     window.addEventListener('keydown', onHotkey, { capture: true });
 
-    // Re-count the active project's git-tracked files when the window regains
-    // focus — files commonly change (commits, new files) while the user is away
-    // in their editor/terminal, and the per-project cache would otherwise hold a
-    // stale number until the next project switch. `force` bypasses that cache.
+    // Re-count the active project's modified tracked files when the window
+    // regains focus — files commonly change (edits, commits) while the user is
+    // away in their editor/terminal, so the badge stays current.
     function onFocus() {
-      void app.refreshGitFileCount(true);
+      void app.refreshGitModifiedCount();
     }
     window.addEventListener('focus', onFocus);
 
