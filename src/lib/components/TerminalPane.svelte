@@ -36,8 +36,30 @@
   let ready = $state(false);
   let dragOver = $state(false);
 
+  // TUI apps (claude, codex) detect pastes by timing: input that arrives in one
+  // burst is treated as pasted text, so a trailing '\r' lands as a literal
+  // newline in the input box instead of submitting. Sending text+'\r' in a
+  // single write hits this intermittently (it only works when the PTY happens to
+  // split them across reads). So write the text, let the app drain it, then send
+  // the Enter on its own so it's read as a discrete submit keystroke.
+  const ENTER_DELAY_MS = 75;
+
   function sendToSession(text: string, enter = false) {
-    if (sessionId !== null) void writeSession(sessionId, enter ? text + '\r' : text);
+    const id = sessionId;
+    if (id === null) return;
+    if (!enter) {
+      void writeSession(id, text);
+      return;
+    }
+    void (async () => {
+      try {
+        await writeSession(id, text);
+        await new Promise((resolve) => setTimeout(resolve, ENTER_DELAY_MS));
+        await writeSession(id, '\r');
+      } catch {
+        /* session closed mid-send — nothing left to submit */
+      }
+    })();
   }
 
   // --- copy / paste ---
