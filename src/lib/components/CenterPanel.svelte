@@ -268,6 +268,12 @@
       title="{app.gitFileCount} git-tracked 파일 · {app.activeProject?.path ?? ''} · 클릭하면 다시 셈"
       onclick={() => app.refreshGitFileCount(true)}
     >🗂 {app.gitFileCount}</button>
+  {:else if app.gitCountError}
+    <button
+      class="git-count err"
+      title="git 카운트 실패: {app.gitCountError} · {app.activeProject?.path ?? ''} · 클릭하면 다시 시도"
+      onclick={() => app.refreshGitFileCount(true)}
+    >🗂 ⚠</button>
   {/if}
   <button
     class="btn icon"

@@ -20,6 +20,13 @@ class AppState {
    * Refreshed when the active project changes; results are cached per path.
    */
   gitFileCount = $state<number | null>(null);
+  /**
+   * Reason the count failed for a *real* error (git not on PATH, dubious
+   * ownership, …) — surfaced as a ⚠ badge so the failure isn't silent. Stays
+   * `null` for the ordinary "not a git repository" case, which just hides the
+   * badge. Cleared on a successful count.
+   */
+  gitCountError = $state<string | null>(null);
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -386,10 +393,12 @@ class AppState {
     const path = this.activeProject?.path ?? '';
     if (this.standalone || !path) {
       this.gitFileCount = null;
+      this.gitCountError = null;
       return;
     }
     if (!force && this.gitCountCache.has(path)) {
       this.gitFileCount = this.gitCountCache.get(path) ?? null;
+      this.gitCountError = null;
       return;
     }
     const seq = ++this.gitCountSeq;
@@ -398,9 +407,15 @@ class AppState {
       if (seq !== this.gitCountSeq) return; // a newer refresh already won
       this.gitCountCache.set(path, count);
       this.gitFileCount = count;
-    } catch {
+      this.gitCountError = null;
+    } catch (e) {
       if (seq !== this.gitCountSeq) return;
+      const msg = String((e as { message?: string })?.message ?? e);
       this.gitFileCount = null;
+      // "not a git repository" is the normal no-badge case; anything else
+      // (git not found, dubious ownership, …) is surfaced as a ⚠ badge + log.
+      this.gitCountError = /not a git repository/i.test(msg) ? null : msg;
+      if (this.gitCountError) console.warn('[git-count]', path, msg);
     }
   }
 }

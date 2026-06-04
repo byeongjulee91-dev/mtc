@@ -492,6 +492,12 @@ textarea.field {
   border-color: var(--accent);
   color: var(--text);
 }
+/* Failure state (git not found / dubious ownership / …): a warm-bordered pill
+   so the problem is visible instead of the badge silently vanishing. */
+.git-count.err {
+  border-color: #d9a05b;
+  color: #d9a05b;
+}
 
 /* center / terminals */
 .profile-bar {
