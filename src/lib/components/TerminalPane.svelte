@@ -39,6 +39,56 @@
   let ready = $state(false);
   let dragOver = $state(false);
 
+  // --- resume-hint detection (the Resume chip) ---
+  // On exit, claude prints `claude --resume <uuid>`. We surface it as a one-click
+  // chip rather than auto-typing it into the prompt: that same string can appear
+  // while claude is still *running* (it answers a "how do I resume?" question, or
+  // a file/`history` containing it is printed), and we can't reliably tell that
+  // the foreground is now a shell ready for input. A chip lets the user confirm
+  // both intent and timing — and a false positive only shows a stray, dismissable
+  // chip instead of writing a command into the wrong place. Detection runs for
+  // every session (not just claude profiles) so it also catches `claude` launched
+  // by hand in a plain shell; the indexOf gate below keeps that cheap.
+  let resumeCmd = $state<string | null>(null);
+  let resumeId = ''; // last id surfaced — suppresses re-showing the same hint
+  let exited = false; // PTY gone: a dead pane can't resume, so stop showing chips
+  const SCAN_MAX = 2048; // rolling output window kept for the regex
+  const resumeDecoder = new TextDecoder();
+  let scanBuf = '';
+  // Strip CSI sequences (colours/cursor moves) so they don't sit between the
+  // characters of the hint. ESC [ params intermediates final-byte.
+  const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+  const RESUME_RE =
+    /claude\s+--resume\s+([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/;
+
+  // Called for every output chunk. A cheap indexOf('--resume') gate keeps the
+  // regex/ANSI-strip off the hot path — that substring is absent from virtually
+  // all normal output, so >99% of chunks return on the first line below.
+  function detectResume(bytes: Uint8Array) {
+    if (exited) return;
+    scanBuf += resumeDecoder.decode(bytes, { stream: true });
+    if (scanBuf.length > SCAN_MAX) scanBuf = scanBuf.slice(-SCAN_MAX);
+    if (scanBuf.indexOf('--resume') === -1) return;
+    const m = scanBuf.replace(ANSI_RE, '').match(RESUME_RE);
+    if (!m || m[1] === resumeId) return;
+    resumeId = m[1];
+    resumeCmd = `claude --resume ${m[1]}`;
+  }
+
+  // Chip clicked: type the resume command and submit it, then hand focus back to
+  // the terminal. The echoed command re-matches the same id, which the guard in
+  // detectResume ignores, so the chip doesn't flicker back.
+  function runResume() {
+    const cmd = resumeCmd;
+    if (cmd === null) return;
+    resumeCmd = null;
+    sendToSession(cmd, true);
+    term?.focus();
+  }
+  function dismissResume() {
+    resumeCmd = null;
+  }
+
   // TUI apps (claude, codex) detect pastes by timing: input that arrives in one
   // burst is treated as pasted text, so a trailing '\r' lands as a literal
   // newline in the input box instead of submitting. Sending text+'\r' in a
@@ -276,8 +326,13 @@
         onData: (bytes) => {
           term?.write(bytes);
           noteOutput();
+          detectResume(bytes);
         },
         onExit: () => {
+          // The PTY is gone — this pane can't resume anything, so drop any pending
+          // chip and stop scanning.
+          exited = true;
+          resumeCmd = null;
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
           onexit?.();
         },
@@ -288,6 +343,10 @@
     }
 
     term.onData((d) => {
+      // The user is typing/acting in this pane — any pending resume hint is now
+      // stale, so hide the chip. (The chip's own click writes via writeSession,
+      // not term input, so it never trips this.)
+      if (resumeCmd !== null) resumeCmd = null;
       if (sessionId !== null) void writeSession(sessionId, d);
     });
 
@@ -431,13 +490,21 @@
   });
 </script>
 
-<div
-  class="pane-term"
-  class:drag-over={dragOver}
-  bind:this={host}
-  role="presentation"
-  ondragover={onDragOver}
-  ondragleave={() => (dragOver = false)}
-  ondrop={onDrop}
-  oncontextmenu={onContextMenu}
-></div>
+<div class="pane-term-wrap">
+  <div
+    class="pane-term"
+    class:drag-over={dragOver}
+    bind:this={host}
+    role="presentation"
+    ondragover={onDragOver}
+    ondragleave={() => (dragOver = false)}
+    ondrop={onDrop}
+    oncontextmenu={onContextMenu}
+  ></div>
+  {#if resumeCmd}
+    <div class="resume-chip">
+      <button class="resume-run" onclick={runResume} title={resumeCmd}>↻ Resume</button>
+      <button class="resume-x" onclick={dismissResume} aria-label="Resume 힌트 닫기" title="닫기">✕</button>
+    </div>
+  {/if}
+</div>

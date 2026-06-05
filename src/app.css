@@ -568,11 +568,68 @@ textarea.field {
   color: var(--muted);
   border-bottom: 1px solid var(--border);
 }
+/* Positioning parent for the xterm host + the Resume chip overlay. Takes the
+   flex:1 layout role inside the .pane column so the host below just fills it. */
+.pane-term-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
 .pane-term {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+/* Resume chip — shown when claude prints its `claude --resume <id>` exit hint.
+   Blue affordance pill (two-accent split: blue = interactive/hint, not cyan
+   state) pinned top-right so it never covers the shell prompt that returns at the
+   bottom. Click ↻ to type+submit the command; ✕ to dismiss. */
+.resume-chip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 11;
+  display: inline-flex;
+  align-items: stretch;
+  animation: resume-chip-in 120ms ease-out;
+}
+.resume-chip button {
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+.resume-chip .resume-run {
+  border-radius: 999px 0 0 999px;
+  padding: 4px 11px;
+  font-weight: 600;
+}
+.resume-chip .resume-x {
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  padding: 4px 8px;
+  color: var(--muted);
+}
+.resume-chip button:hover {
+  background: color-mix(in srgb, var(--accent) 30%, var(--panel-2));
+}
+.resume-chip .resume-x:hover {
+  color: var(--text);
+}
+@keyframes resume-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 /* Highlight a pane while a todo/query is dragged over it (drop = insert text). */
 .pane-term.drag-over::after {
