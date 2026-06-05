@@ -46,9 +46,9 @@ export async function discoverSkills(
 // --- git ---
 
 /**
- * Count modified (changed) git-tracked files in a project directory — staged or
- * unstaged changes to tracked files, untracked excluded (`git status
- * --porcelain -uno`). Resolves to the count (possibly `0`), or `null` for an
+ * Count changed files in a project directory — staged or unstaged changes to
+ * tracked files, plus untracked files (`git status
+ * --porcelain`). Resolves to the count (possibly `0`), or `null` for an
  * empty path. On Windows a Linux-style path is counted inside WSL. Rejects with
  * a reason string when git fails (not a repo, git not on PATH, dubious
  * ownership, …) so the caller can surface/log it.

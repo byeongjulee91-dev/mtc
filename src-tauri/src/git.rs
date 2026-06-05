@@ -1,6 +1,6 @@
 //! Counting *modified* git-tracked files for a project directory — the number
-//! of tracked files with staged or unstaged changes (untracked files excluded),
-//! i.e. what `git status` reports as changes to tracked files.
+//! of tracked files with staged or unstaged changes plus untracked files, i.e.
+//! what `git status` reports as pending work.
 //!
 //! On Windows a project path is usually a Linux-style WSL path (`/mnt/c/…` or
 //! `~/…`), where the repo and `git` actually live, so we run inside WSL — the
@@ -13,7 +13,7 @@ use std::process::{Command, Output, Stdio};
 use crate::storage::{is_linux_path, to_wsl_root_expr};
 
 /// Count modified (changed) git-tracked files in `path` via
-/// `git status --porcelain --untracked-files=no`:
+/// `git status --porcelain`:
 /// - `Ok(None)` — the path is empty (nothing to count).
 /// - `Ok(Some(n))` — a git work tree with `n` changed tracked files (maybe `0`).
 /// - `Err(reason)` — git failed: not a repo, git not on PATH, dubious ownership,
@@ -37,11 +37,11 @@ pub fn count_modified_files(path: &str, windows: bool) -> Result<Option<u32>, St
     }
 }
 
-/// The status args: machine-readable, one tracked change per line, untracked
-/// files omitted (so the count is "tracked & modified", not "tracked").
-const STATUS_ARGS: [&str; 2] = ["--porcelain", "--untracked-files=no"];
+/// The status args: machine-readable, one changed entry per line. This includes
+/// untracked files, matching the default `git status` view.
+const STATUS_ARGS: [&str; 1] = ["--porcelain"];
 
-/// `git -C <path> status --porcelain -uno` on the host.
+/// `git -C <path> status --porcelain` on the host.
 fn run_native(path: &str) -> std::io::Result<Output> {
     let mut cmd = Command::new("git");
     cmd.arg("-C")
@@ -92,9 +92,9 @@ fn no_window(_cmd: &mut Command) {
     }
 }
 
-/// Number of changed tracked files in `git status --porcelain` output: one
-/// non-empty line per entry (a rename is a single `R old -> new` line, and git
-/// quotes paths with special chars, so line counting is robust).
+/// Number of changed files in `git status --porcelain` output: one non-empty
+/// line per entry (a rename is a single `R old -> new` line, and git quotes
+/// paths with special chars, so line counting is robust).
 fn count_changes(bytes: &[u8]) -> u32 {
     String::from_utf8_lossy(bytes)
         .lines()
@@ -110,8 +110,11 @@ mod tests {
     fn counts_porcelain_lines() {
         assert_eq!(count_changes(b""), 0);
         assert_eq!(count_changes(b" M package-lock.json\n"), 1);
-        // staged-modified, deleted, and a rename (one line) → 3.
-        assert_eq!(count_changes(b"M  staged.rs\n D del.rs\nR  old.rs -> new.rs\n"), 3);
+        // staged-modified, deleted, a rename (one line), and untracked.
+        assert_eq!(
+            count_changes(b"M  staged.rs\n D del.rs\nR  old.rs -> new.rs\n?? new.rs\n"),
+            4
+        );
     }
 
     #[test]
