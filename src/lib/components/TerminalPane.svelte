@@ -51,7 +51,7 @@
   // by hand in a plain shell; the indexOf gate below keeps that cheap.
   let resumeCmd = $state<string | null>(null);
   let resumeId = ''; // last id surfaced — suppresses re-showing the same hint
-  let exited = false; // PTY gone: a dead pane can't resume, so stop showing chips
+  let exited = $state(false); // PTY gone: a dead pane can't resume, so stop showing chips
   const SCAN_MAX = 2048; // rolling output window kept for the regex
   const resumeDecoder = new TextDecoder();
   let scanBuf = '';
@@ -75,15 +75,22 @@
     resumeCmd = `claude --resume ${m[1]}`;
   }
 
-  // Chip clicked: type the resume command and submit it, then hand focus back to
-  // the terminal. The echoed command re-matches the same id, which the guard in
-  // detectResume ignores, so the chip doesn't flicker back.
+  // Chip clicked: type the resume command and submit it.
+  // If the PTY is still alive (keepOpen=true, bash shell running): write directly
+  // to the terminal session. term.focus() is intentionally skipped here — calling
+  // it triggers xterm to emit a focus escape sequence (\x1b[I) which can land
+  // in the PTY ahead of our command and corrupt the input line.
+  // If the PTY is dead (keepOpen=false): copy to clipboard so the user can paste
+  // into a new terminal. The chip stays visible until dismissed or pane closes.
   function runResume() {
     const cmd = resumeCmd;
     if (cmd === null) return;
     resumeCmd = null;
-    sendToSession(cmd, true);
-    term?.focus();
+    if (!exited && sessionId !== null) {
+      sendToSession(cmd, true);
+    } else {
+      void clipboardWriteText(cmd).catch(() => {});
+    }
   }
   function dismissResume() {
     resumeCmd = null;
@@ -329,10 +336,10 @@
           detectResume(bytes);
         },
         onExit: () => {
-          // The PTY is gone — this pane can't resume anything, so drop any pending
-          // chip and stop scanning.
+          // PTY is gone. Keep any pending resumeCmd so the chip stays visible —
+          // the user may still want to copy/resume in a new session. runResume
+          // detects exited=true and falls back to clipboard instead of writing.
           exited = true;
-          resumeCmd = null;
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
           onexit?.();
         },
@@ -502,8 +509,12 @@
     oncontextmenu={onContextMenu}
   ></div>
   {#if resumeCmd}
-    <div class="resume-chip">
-      <button class="resume-run" onclick={runResume} title={resumeCmd}>↻ Resume</button>
+    <div class="resume-chip" class:dead={exited}>
+      <button
+        class="resume-run"
+        onclick={runResume}
+        title={exited ? `클립보드에 복사: ${resumeCmd}` : resumeCmd}
+      >{exited ? '⎘ Copy Resume' : '↻ Resume'}</button>
       <button class="resume-x" onclick={dismissResume} aria-label="Resume 힌트 닫기" title="닫기">✕</button>
     </div>
   {/if}
