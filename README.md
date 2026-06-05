@@ -137,14 +137,16 @@ Defaults: **Claude**, **Codex**, **WSL Shell**.
 ## Skills
 
 The **Skills** tab scans configured **roots** for subdirectories containing a `SKILL.md`
-and reads the `name` / `description` frontmatter. Because claude runs inside WSL, point a
-root at the WSL skills dir via its UNC path, e.g.:
+and reads the `name` / `description` frontmatter. It auto-detects Claude and Codex
+skill dirs on the host, in WSL, and under the active project. To add another WSL
+root manually, use its UNC path, e.g.:
 
 ```
 \\wsl.localhost\Ubuntu\home\<you>\.claude\skills
 ```
 
-With no roots configured it falls back to the host's `~/.claude/skills`.
+With no roots configured it falls back to the host and WSL `~/.claude/skills` and
+`~/.codex/skills` roots.
 
 ## Development scripts
 

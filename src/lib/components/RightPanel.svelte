@@ -4,6 +4,8 @@
   import { defaultProfiles } from '../defaults';
   import type { Profile, Skill, SkillGroup } from '../types';
 
+  type SkillAgent = 'claude' | 'codex' | 'mixed' | 'custom';
+
   let tab = $state<'skills' | 'profiles'>('skills');
   let newRoot = $state('');
   let skillQuery = $state('');
@@ -31,15 +33,18 @@
    */
   const filteredGroups = $derived.by(() => {
     const q = skillQuery.trim().toLowerCase();
-    if (!q) return app.skillGroups;
-    return app.skillGroups
-      .map((g) => ({
-        ...g,
-        skills: g.skills.filter(
-          (s) => s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q),
-        ),
-      }))
-      .filter((g) => g.skills.length > 0);
+    let groups = app.skillGroups;
+    if (q) {
+      groups = app.skillGroups
+        .map((g) => ({
+          ...g,
+          skills: g.skills.filter(
+            (s) => s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q),
+          ),
+        }))
+        .filter((g) => g.skills.length > 0);
+    }
+    return [...groups].sort((a, b) => groupSortKey(a) - groupSortKey(b));
   });
   /** While searching, ignore collapse state so every match stays visible. */
   const searching = $derived(skillQuery.trim().length > 0);
@@ -47,13 +52,40 @@
   function insertSkill(s: Skill) {
     bus.send('/' + s.name, false);
   }
+  function skillAgentFromPath(path: string): SkillAgent {
+    const normalized = path.replaceAll('\\', '/').toLowerCase();
+    if (normalized.includes('/.codex/skills/')) return 'codex';
+    if (normalized.includes('/.claude/skills/')) return 'claude';
+    return 'custom';
+  }
+  function groupAgent(g: SkillGroup): SkillAgent {
+    const rootAgent = skillAgentFromPath(g.root + '/');
+    if (rootAgent !== 'custom') return rootAgent;
+    const agents = new Set(g.skills.map((s) => skillAgentFromPath(s.path)).filter((a) => a !== 'custom'));
+    if (agents.size === 1) return Array.from(agents)[0] ?? 'custom';
+    if (agents.size > 1) return 'mixed';
+    return 'custom';
+  }
+  function groupSortKey(g: SkillGroup): number {
+    const agent = groupAgent(g);
+    if (agent === 'claude') return 0;
+    if (agent === 'codex') return 1;
+    if (agent === 'mixed') return 2;
+    return 3;
+  }
+  function agentLabel(agent: SkillAgent): string {
+    if (agent === 'claude') return 'Claude';
+    if (agent === 'codex') return 'Codex';
+    if (agent === 'mixed') return 'Mixed';
+    return 'Custom';
+  }
   /** Shorten a Linux home path for display: /home/<user>/… → ~/…. */
   function prettyRoot(root: string): string {
     return root.replace(/^\/home\/[^/]+/, '~').replace(/^\/root(?=\/|$)/, '~');
   }
   /**
-   * A WSL-discovered skill can only be inserted into a WSL terminal — a native
-   * PowerShell/cmd `claude` runs against the Windows host's skills, not WSL's.
+   * A WSL-discovered skill can only be inserted into a WSL terminal — native
+   * PowerShell/cmd agents run against the Windows host's skills, not WSL's.
    */
   function groupBlocked(g: SkillGroup): boolean {
     return g.kind === 'wsl' && (bus.focusedShell === 'powershell' || bus.focusedShell === 'cmd');
@@ -130,7 +162,7 @@
         <button class="btn" onclick={addRoot}>+</button>
         <button class="btn" title="Browse folder" onclick={browseRoot}>…</button>
       </div>
-      <div class="muted" style="font-size:11px">Auto-detects ~/.claude/skills (host + WSL) and the active project's .claude/skills.</div>
+      <div class="muted" style="font-size:11px">Auto-detects Claude and Codex skill dirs (host + WSL, user + active project).</div>
       <div class="search-row">
         <input class="field" placeholder="Search skills…" bind:value={skillQuery} />
         {#if searching}
@@ -147,6 +179,7 @@
       {#each filteredGroups as g (g.root)}
         {@const blocked = groupBlocked(g)}
         {@const folded = !searching && isCollapsed(g)}
+        {@const agent = groupAgent(g)}
         <button
           class="group-head"
           class:blocked
@@ -154,6 +187,7 @@
           onclick={() => toggleGroup(g)}
         >
           <span class="tw">{folded ? '▸' : '▾'}</span>
+          <span class="agent-badge" class:claude={agent === 'claude'} class:codex={agent === 'codex'} class:mixed={agent === 'mixed'}>{agentLabel(agent)}</span>
           <span class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{prettyRoot(g.root)}</span>
           <span class="badge" class:wsl={g.kind === 'wsl'}>{g.kind === 'wsl' ? 'WSL' : 'host'}</span>
           <span class="muted" style="font-size:11px">{g.skills.length}</span>
@@ -336,6 +370,32 @@
   .badge.wsl {
     color: var(--border-focus);
     border-color: var(--border-focus);
+  }
+  .agent-badge {
+    flex: 0 0 auto;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border: 1px solid #596171;
+    border-radius: 4px;
+    color: #b9c1cf;
+    background: #202734;
+  }
+  .agent-badge.claude {
+    color: #f1b39a;
+    border-color: #b96b4f;
+    background: #34251f;
+  }
+  .agent-badge.codex {
+    color: #84dfc2;
+    border-color: #278b70;
+    background: #18312b;
+  }
+  .agent-badge.mixed {
+    color: #c7b9ff;
+    border-color: #7766bf;
+    background: #28233b;
   }
 
   .profile-row {

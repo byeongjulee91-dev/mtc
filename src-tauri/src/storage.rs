@@ -155,12 +155,19 @@ fn unquote(s: &str) -> String {
     }
 }
 
-/// `<dir>/.claude/skills` as a string.
-fn skills_dir(dir: &Path) -> String {
-    dir.join(".claude")
+/// `<dir>/.<agent>/skills` as a string.
+fn skills_dir(dir: &Path, agent: &str) -> String {
+    dir.join(format!(".{agent}"))
         .join("skills")
         .to_string_lossy()
         .to_string()
+}
+
+fn agent_skill_dirs(dir: &Path) -> Vec<String> {
+    ["claude", "codex"]
+        .iter()
+        .map(|agent| skills_dir(dir, agent))
+        .collect()
 }
 
 fn make_skill(dir: &Path, skill_file: &Path, content: &str) -> Skill {
@@ -195,7 +202,7 @@ fn scan_dir(dir: &Path, depth: usize, out: &mut Vec<Skill>) {
         if path
             .file_name()
             .and_then(|n| n.to_str())
-            .map_or(true, |n| n.starts_with('.'))
+            .map_or(true, |n| n.starts_with('.') && n != ".system")
         {
             continue;
         }
@@ -359,7 +366,7 @@ fn parse_wsl_records(out: &str) -> Vec<Skill> {
 
 /// Scan skill roots inside WSL (default distro when `distro` is `None`), grouped
 /// per root. `roots` are Linux-side directory expressions (e.g.
-/// `"$HOME/.claude/skills"` or `"/mnt/c/proj/.claude/skills"`). Returns
+/// `"$HOME/.claude/skills"` or `"/mnt/c/proj/.codex/skills"`). Returns
 /// `(resolved_root, skills)` per root. Best-effort: an unavailable/failed WSL or
 /// empty root set yields nothing.
 fn scan_wsl_skills(distro: Option<&str>, roots: &[String]) -> Vec<(String, Vec<Skill>)> {
@@ -427,9 +434,9 @@ fn push_wsl_root(groups: &mut Vec<(Option<String>, Vec<String>)>, distro: Option
 /// Discover skills with zero manual configuration, merging:
 ///   1. the user's manual roots (WSL UNC roots scanned inside WSL, the rest
 ///      natively),
-///   2. the host user skills dir (`<host home>/.claude/skills`),
-///   3. on Windows, the WSL default-distro user skills dir,
-///   4. the active project's `.claude/skills` (WSL-translated when the project
+///   2. the host user skills dirs (`<host home>/.claude/skills` and `.codex/skills`),
+///   3. on Windows, the WSL default-distro user skills dirs,
+///   4. the active project's `.claude/skills` and `.codex/skills` (WSL-translated when the project
 ///      path is Linux-style, native otherwise).
 /// Returns the deduped/sorted skills and the list of roots consulted.
 ///
@@ -467,29 +474,32 @@ pub fn discover_skills(
     // 2. Host user skills (project-independent, gated by include_global).
     if include_global {
         if let Some(home) = host_home {
-            native_roots.push(skills_dir(home));
+            native_roots.extend(agent_skill_dirs(home));
         }
     }
 
     // 3. WSL default-distro user skills (Windows only; project-independent).
     if include_global && windows {
         push_wsl_root(&mut wsl_groups, None, "$HOME/.claude/skills".to_string());
+        push_wsl_root(&mut wsl_groups, None, "$HOME/.codex/skills".to_string());
     }
 
     // 4. Active project skills.
     if let Some(p) = project {
         if windows && is_linux_path(p) {
-            let dir = format!("{}/.claude/skills", to_wsl_root_expr(p).trim_end_matches('/'));
-            push_wsl_root(&mut wsl_groups, None, dir);
+            let base = to_wsl_root_expr(p);
+            let base = base.trim_end_matches('/');
+            push_wsl_root(&mut wsl_groups, None, format!("{base}/.claude/skills"));
+            push_wsl_root(&mut wsl_groups, None, format!("{base}/.codex/skills"));
         } else if windows {
-            native_roots.push(skills_dir(Path::new(p)));
+            native_roots.extend(agent_skill_dirs(Path::new(p)));
         } else {
             // Unix dev mode: the project path is a real host path; expand `~`.
             let base = match (p.strip_prefix('~'), host_home) {
                 (Some(rest), Some(home)) => home.join(rest.trim_start_matches('/')),
                 _ => PathBuf::from(p),
             };
-            native_roots.push(skills_dir(&base));
+            native_roots.extend(agent_skill_dirs(&base));
         }
     }
 
@@ -711,6 +721,25 @@ mod tests {
     }
 
     #[test]
+    fn scan_descends_codex_system_namespace() {
+        let base = env::temp_dir().join(format!("mtc-system-skills-{}", std::process::id()));
+        let system = base.join(".system").join("imagegen");
+        let ignored = base.join(".cache").join("hidden");
+        fs::create_dir_all(&system).unwrap();
+        fs::create_dir_all(&ignored).unwrap();
+        fs::write(system.join("SKILL.md"), "---\nname: imagegen\n---\n").unwrap();
+        fs::write(ignored.join("SKILL.md"), "---\nname: hidden\n---\n").unwrap();
+
+        let names: Vec<String> = scan_skills(&[base.to_string_lossy().to_string()])
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+        assert_eq!(names, vec!["imagegen".to_string()]);
+
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
     fn finalize_prunes_skills_nested_under_another_skill() {
         let skills = vec![
             Skill { name: "gstack".into(), description: String::new(), path: "/s/gstack/SKILL.md".into() },
@@ -727,13 +756,19 @@ mod tests {
         let base = env::temp_dir().join(format!("mtc-discover-{}", std::process::id()));
         let home = base.join("home");
         let proj = base.join("proj");
-        // home/.claude/skills/h/SKILL.md  and  proj/.claude/skills/p/SKILL.md
+        // home + project skills for both Claude and Codex.
         let h = home.join(".claude").join("skills").join("h");
+        let hc = home.join(".codex").join("skills").join("hc");
         let p = proj.join(".claude").join("skills").join("p");
+        let pc = proj.join(".codex").join("skills").join("pc");
         fs::create_dir_all(&h).unwrap();
+        fs::create_dir_all(&hc).unwrap();
         fs::create_dir_all(&p).unwrap();
+        fs::create_dir_all(&pc).unwrap();
         fs::write(h.join("SKILL.md"), "---\nname: h\n---\n").unwrap();
+        fs::write(hc.join("SKILL.md"), "---\nname: hc\n---\n").unwrap();
         fs::write(p.join("SKILL.md"), "---\nname: p\n---\n").unwrap();
+        fs::write(pc.join("SKILL.md"), "---\nname: pc\n---\n").unwrap();
 
         let d = discover_skills(
             Some(&home),
@@ -748,9 +783,17 @@ mod tests {
             .flat_map(|g| g.skills.iter().map(|s| s.name.as_str()))
             .collect();
         assert!(names.contains(&"h"), "host home skills detected");
-        assert!(names.contains(&"p"), "active-project skills detected");
-        // Two distinct roots → two groups.
-        assert_eq!(d.groups.len(), 2);
+        assert!(names.contains(&"hc"), "host home Codex skills detected");
+        assert!(
+            names.contains(&"p"),
+            "active-project Claude skills detected"
+        );
+        assert!(
+            names.contains(&"pc"),
+            "active-project Codex skills detected"
+        );
+        // Four distinct roots: home/project × Claude/Codex.
+        assert_eq!(d.groups.len(), 4);
 
         // include_global = false scans only the project root — the host home
         // skills are skipped, which is how the frontend splits the two passes.
@@ -766,9 +809,11 @@ mod tests {
             .iter()
             .flat_map(|g| g.skills.iter().map(|s| s.name.as_str()))
             .collect();
-        assert_eq!(only_project.groups.len(), 1, "only the project root");
-        assert!(names.contains(&"p"), "project skill present");
+        assert_eq!(only_project.groups.len(), 2, "only the project roots");
+        assert!(names.contains(&"p"), "project Claude skill present");
+        assert!(names.contains(&"pc"), "project Codex skill present");
         assert!(!names.contains(&"h"), "host home skill excluded");
+        assert!(!names.contains(&"hc"), "host home Codex skill excluded");
 
         fs::remove_dir_all(&base).ok();
     }

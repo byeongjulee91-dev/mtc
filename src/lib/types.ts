@@ -63,8 +63,8 @@ export interface SkillGroup {
   /** The root the skills were found under (resolved path), used as the header. */
   root: string;
   /**
-   * `'wsl'` = scanned inside WSL (only a WSL terminal's `claude` can use them);
-   * `'host'` = scanned on the host filesystem (a native shell's `claude`).
+   * `'wsl'` = scanned inside WSL (only a WSL terminal can use them);
+   * `'host'` = scanned on the host filesystem (a native shell can use them).
    */
   kind: 'wsl' | 'host';
   skills: Skill[];

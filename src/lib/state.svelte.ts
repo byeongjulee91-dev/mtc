@@ -82,7 +82,7 @@ class AppState {
   selectProject(id: string): void {
     this.data.activeProjectId = id;
     this.scheduleSave();
-    // The active project's `.claude/skills` is auto-detected, but discovery is
+    // The active project's agent skill dirs are auto-detected, but discovery is
     // driven lazily by the Skills panel (it spawns `wsl.exe`) — switching
     // projects no longer scans on its own.
   }
@@ -334,7 +334,8 @@ class AppState {
   // Discovery spawns `wsl.exe`, so it is split into two cached passes:
   //  - global: manual roots + host/WSL user skills. Project-independent, so it
   //    is scanned once per root set and reused across every project switch.
-  //  - project: the active project's `.claude/skills`, scanned once per project.
+  //  - project: the active project's `.claude/skills` + `.codex/skills`,
+  //    scanned once per project.
   // The displayed list is their merge. Editing the manual roots invalidates the
   // global pass; the per-project passes don't depend on it and stay cached.
   private skillScanSeq = 0;

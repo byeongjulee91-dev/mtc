@@ -32,7 +32,8 @@ fn save_app_data(app: tauri::AppHandle, data: Value) -> Result<(), String> {
 }
 
 /// Discover skills with zero manual configuration: the user's manual roots plus
-/// the host + WSL user skills dirs and the active project's `.claude/skills`.
+/// the host + WSL user skill dirs and the active project's `.claude/skills` /
+/// `.codex/skills`.
 /// WSL roots are scanned inside WSL (so owner-only/symlinked skills resolve).
 /// Returns the merged skill list and the roots consulted. `project_path` is the
 /// active project's path, or `None`.
