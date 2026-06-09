@@ -247,6 +247,13 @@ button {
   color: var(--muted);
   text-decoration: line-through;
 }
+.todo-num {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 14px;
+  text-align: right;
+}
 /* Draggable todo/query text — drop onto a terminal pane to insert it. */
 [draggable='true'] {
   cursor: grab;
@@ -567,6 +574,16 @@ textarea.field {
   font-size: 11px;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
+}
+.todo-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 16px;
 }
 /* Positioning parent for the xterm host + the Resume chip overlay. Takes the
    flex:1 layout role inside the .pane column so the host below just fills it. */

@@ -17,6 +17,8 @@
   } from '../api';
 
   interface Props {
+    /** Numeric pane ID assigned by CenterPanel (used to track todo associations). */
+    paneId: number;
     profile: Profile;
     /** This is the focused pane within its workspace. */
     active: boolean;
@@ -29,7 +31,7 @@
      *  working indicator. Driven by the output idle timer below. */
     onbusy?: (busy: boolean) => void;
   }
-  let { profile, active, visible = true, onexit, onbusy }: Props = $props();
+  let { paneId, profile, active, visible = true, onexit, onbusy }: Props = $props();
 
   let host: HTMLDivElement;
   let term: Terminal | null = null;
@@ -239,6 +241,10 @@
     const text = bus.dragText ?? e.dataTransfer?.getData(INSERT_DRAG_TYPE) ?? '';
     if (!text) return;
     e.preventDefault();
+    // Record todo association when a todo was dragged onto this pane.
+    if (bus.dragTodoIndex !== null) {
+      bus.paneToTodo = { ...bus.paneToTodo, [paneId]: bus.dragTodoIndex };
+    }
     term?.focus();
     if (sessionId !== null) sendToSession(text);
     // Standalone/no-backend (`npm run dev`): there is no PTY to write to, so
@@ -255,9 +261,11 @@
       term.focus();
       bus.send = sendToSession;
       bus.focusedShell = profile.shell;
+      bus.focusedPaneId = paneId;
     } else if (bus.send === sendToSession) {
       bus.send = () => {};
       bus.focusedShell = null;
+      bus.focusedPaneId = null;
     }
   });
 

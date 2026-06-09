@@ -329,9 +329,13 @@
               <div class="pane-head">
                 <span class="dot" style="background:{profile.color};width:8px;height:8px;border-radius:50%"></span>
                 <span class="grow">{profile.name}{profile.command ? ` · ${profile.command}` : ''}</span>
+                {#if bus.paneToTodo[id] !== undefined}
+                  <span class="todo-badge">#{bus.paneToTodo[id]}</span>
+                {/if}
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
               <TerminalPane
+                paneId={id}
                 {profile}
                 active={isActive && id === rt.focusedId}
                 visible={isActive}

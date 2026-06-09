@@ -84,6 +84,12 @@
   function sendQuery(text: string, enter = true) {
     bus.send(text, enter);
   }
+  function sendTodo(text: string, todoIndex: number) {
+    if (bus.focusedPaneId !== null) {
+      bus.paneToTodo = { ...bus.paneToTodo, [bus.focusedPaneId]: todoIndex };
+    }
+    bus.send(text, true);
+  }
   function sendQueryAll(text: string, enter = true) {
     bus.sendAll(text, enter);
   }
@@ -91,8 +97,9 @@
   // session's input (see TerminalPane's drop handler). The text is shared via
   // `bus.dragText` so panes can accept the drop even in WebViews that strip
   // custom MIME types; the DataTransfer copy is a native/standards fallback.
-  function startDrag(e: DragEvent, text: string) {
+  function startDrag(e: DragEvent, text: string, todoIndex?: number) {
     bus.dragText = text;
+    bus.dragTodoIndex = todoIndex ?? null;
     if (e.dataTransfer) {
       e.dataTransfer.setData(INSERT_DRAG_TYPE, text);
       e.dataTransfer.setData('text/plain', text);
@@ -291,7 +298,7 @@
       {#if app.activeProject.todos.length === 0}
         <div class="empty">No todos yet.</div>
       {:else}
-        {#each app.activeProject.todos as t (t.id)}
+        {#each app.activeProject.todos as t, i (t.id)}
           {#if editingTodoId === t.id}
             <div class="list-row top" style="flex-direction:column;align-items:stretch;gap:6px">
               <textarea
@@ -310,14 +317,15 @@
           {:else}
             <div class="list-row top row-float">
               <input type="checkbox" checked={t.done} onchange={() => app.toggleTodo(t.id)} />
+              <span class="todo-num">{i + 1}</span>
               <span
                 class="grow wrap"
                 class:done={t.done}
                 draggable="true"
                 role="presentation"
                 ondblclick={() => startEditTodo(t.id, t.text)}
-                ondragstart={(e) => startDrag(e, t.text)}
-                ondragend={() => (bus.dragText = null)}
+                ondragstart={(e) => startDrag(e, t.text, i + 1)}
+                ondragend={() => { bus.dragText = null; bus.dragTodoIndex = null; }}
                 title="Double-click to edit · drag onto a terminal to insert">{t.text}</span
               >
               <div class="row-actions">
@@ -325,7 +333,7 @@
                   class="btn icon"
                   title="Send to focused terminal"
                   disabled={!bus.hasFocus}
-                  onclick={() => sendQuery(t.text)}>➤</button
+                  onclick={() => sendTodo(t.text, i + 1)}>➤</button
                 >
                 <button class="btn icon" title="Edit" onclick={() => startEditTodo(t.id, t.text)}>✎</button>
                 <button
