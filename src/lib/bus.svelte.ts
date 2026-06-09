@@ -70,12 +70,12 @@ class Bus {
    * make panes reject the drop (the "no-drop" cursor).
    */
   dragText = $state<string | null>(null);
-  /** 1-based index of the todo currently being dragged, or null. */
-  dragTodoIndex = $state<number | null>(null);
+  /** Stable ID of the todo currently being dragged, or null. */
+  dragTodoIndex = $state<string | null>(null);
   /** Numeric ID of the currently focused pane (set by TerminalPane). */
   focusedPaneId = $state<number | null>(null);
-  /** Maps pane numeric ID → 1-based todo index last inserted into that pane. */
-  paneToTodo = $state<Record<number, number>>({});
+  /** Maps pane numeric ID → stable todo ID last inserted into that pane. */
+  paneToTodo = $state<Record<number, string>>({});
 
   register(fn: Sender) {
     this.#senders.add(fn);

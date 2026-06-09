@@ -84,9 +84,9 @@
   function sendQuery(text: string, enter = true) {
     bus.send(text, enter);
   }
-  function sendTodo(text: string, todoIndex: number) {
+  function sendTodo(text: string, todoId: string) {
     if (bus.focusedPaneId !== null) {
-      bus.paneToTodo = { ...bus.paneToTodo, [bus.focusedPaneId]: todoIndex };
+      bus.paneToTodo = { ...bus.paneToTodo, [bus.focusedPaneId]: todoId };
     }
     bus.send(text, true);
   }
@@ -97,9 +97,9 @@
   // session's input (see TerminalPane's drop handler). The text is shared via
   // `bus.dragText` so panes can accept the drop even in WebViews that strip
   // custom MIME types; the DataTransfer copy is a native/standards fallback.
-  function startDrag(e: DragEvent, text: string, todoIndex?: number) {
+  function startDrag(e: DragEvent, text: string, todoId?: string) {
     bus.dragText = text;
-    bus.dragTodoIndex = todoIndex ?? null;
+    bus.dragTodoIndex = todoId ?? null;
     if (e.dataTransfer) {
       e.dataTransfer.setData(INSERT_DRAG_TYPE, text);
       e.dataTransfer.setData('text/plain', text);
@@ -324,7 +324,7 @@
                 draggable="true"
                 role="presentation"
                 ondblclick={() => startEditTodo(t.id, t.text)}
-                ondragstart={(e) => startDrag(e, t.text, i + 1)}
+                ondragstart={(e) => startDrag(e, t.text, t.id)}
                 ondragend={() => { bus.dragText = null; bus.dragTodoIndex = null; }}
                 title="Double-click to edit · drag onto a terminal to insert">{t.text}</span
               >
@@ -333,7 +333,7 @@
                   class="btn icon"
                   title="Send to focused terminal"
                   disabled={!bus.hasFocus}
-                  onclick={() => sendTodo(t.text, i + 1)}>➤</button
+                  onclick={() => sendTodo(t.text, t.id)}>➤</button
                 >
                 <button class="btn icon" title="Edit" onclick={() => startEditTodo(t.id, t.text)}>✎</button>
                 <button

@@ -330,7 +330,10 @@
                 <span class="dot" style="background:{profile.color};width:8px;height:8px;border-radius:50%"></span>
                 <span class="grow">{profile.name}{profile.command ? ` · ${profile.command}` : ''}</span>
                 {#if bus.paneToTodo[id] !== undefined}
-                  <span class="todo-badge">#{bus.paneToTodo[id]}</span>
+                  {@const todoIdx = app.activeProject?.todos.findIndex(t => t.id === bus.paneToTodo[id]) ?? -1}
+                  {#if todoIdx !== -1}
+                    <span class="todo-badge">#{todoIdx + 1}</span>
+                  {/if}
                 {/if}
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
