@@ -335,6 +335,13 @@
                     <span class="todo-badge">#{todoIdx + 1}</span>
                   {/if}
                 {/if}
+                {#if bus.paneResumeCmd[id]}
+                  <button
+                    class="btn resume-pill"
+                    title={bus.paneResumeCmd[id] ?? ''}
+                    onclick={() => bus.paneResumeRun[id]?.()}
+                  >↻ Resume</button>
+                {/if}
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>
               <TerminalPane

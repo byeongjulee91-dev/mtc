@@ -76,6 +76,10 @@ class Bus {
   focusedPaneId = $state<number | null>(null);
   /** Maps pane numeric ID → stable todo ID last inserted into that pane. */
   paneToTodo = $state<Record<number, string>>({});
+  /** Maps pane numeric ID → the pending `claude --resume <uuid>` command, or null. */
+  paneResumeCmd = $state<Record<number, string | null>>({});
+  /** Maps pane numeric ID → the resume action handler registered by that pane. */
+  paneResumeRun: Record<number, () => void> = {};
 
   register(fn: Sender) {
     this.#senders.add(fn);

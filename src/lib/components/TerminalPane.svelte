@@ -94,9 +94,6 @@
       void clipboardWriteText(cmd).catch(() => {});
     }
   }
-  function dismissResume() {
-    resumeCmd = null;
-  }
 
   // TUI apps (claude, codex) detect pastes by timing: input that arrives in one
   // burst is treated as pasted text, so a trailing '\r' lands as a literal
@@ -301,7 +298,13 @@
     };
   });
 
+  // Sync resumeCmd to the bus so the pane header (in CenterPanel) can render it.
+  $effect(() => {
+    bus.paneResumeCmd[paneId] = resumeCmd;
+  });
+
   onMount(async () => {
+    bus.paneResumeRun[paneId] = runResume;
     term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "Consolas", monospace',
       fontSize: app.data.terminalFontSize,
@@ -358,13 +361,6 @@
     }
 
     term.onData((d) => {
-      // Clear the resume chip when the user is actively typing — but NOT for
-      // xterm's focus-tracking sequences (\x1b[I focus-in, \x1b[O focus-out).
-      // Those fire when the chip button steals focus on mousedown, which happens
-      // BEFORE the click event reaches onclick={runResume}. Letting them clear
-      // resumeCmd would cause runResume to see cmd===null and return immediately,
-      // giving the "no reaction" symptom even though the click registered fine.
-      if (resumeCmd !== null && d !== '\x1b[I' && d !== '\x1b[O') resumeCmd = null;
       if (sessionId !== null) void writeSession(sessionId, d);
     });
 
@@ -490,6 +486,8 @@
   }
 
   onDestroy(() => {
+    delete bus.paneResumeRun[paneId];
+    delete bus.paneResumeCmd[paneId];
     host?.removeEventListener('wheel', onWheel);
     resizeObs?.disconnect();
     // Stop the idle timer and clear any lingering busy state so a pane that's
@@ -519,14 +517,4 @@
     ondrop={onDrop}
     oncontextmenu={onContextMenu}
   ></div>
-  {#if resumeCmd}
-    <div class="resume-chip" class:dead={exited}>
-      <button
-        class="resume-run"
-        onclick={runResume}
-        title={exited ? `클립보드에 복사: ${resumeCmd}` : resumeCmd}
-      >{exited ? '⎘ Copy Resume' : '↻ Resume'}</button>
-      <button class="resume-x" onclick={dismissResume} aria-label="Resume 힌트 닫기" title="닫기">✕</button>
-    </div>
-  {/if}
 </div>
