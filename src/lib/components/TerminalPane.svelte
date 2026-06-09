@@ -358,10 +358,13 @@
     }
 
     term.onData((d) => {
-      // The user is typing/acting in this pane — any pending resume hint is now
-      // stale, so hide the chip. (The chip's own click writes via writeSession,
-      // not term input, so it never trips this.)
-      if (resumeCmd !== null) resumeCmd = null;
+      // Clear the resume chip when the user is actively typing — but NOT for
+      // xterm's focus-tracking sequences (\x1b[I focus-in, \x1b[O focus-out).
+      // Those fire when the chip button steals focus on mousedown, which happens
+      // BEFORE the click event reaches onclick={runResume}. Letting them clear
+      // resumeCmd would cause runResume to see cmd===null and return immediately,
+      // giving the "no reaction" symptom even though the click registered fine.
+      if (resumeCmd !== null && d !== '\x1b[I' && d !== '\x1b[O') resumeCmd = null;
       if (sessionId !== null) void writeSession(sessionId, d);
     });
 
