@@ -284,18 +284,34 @@
   // session that is still streaming can otherwise redraw against the new grid
   // before the child learns the new size, stranding its input box above stale
   // lines; re-pinning to the bottom keeps the prompt in view on return.
+  //
+  // A second re-pin fires after a short delay to catch the PTY redraw output that
+  // arrives asynchronously from the SIGWINCH: both the ResizeObserver and this RAF
+  // send SIGWINCH, and their redraw output (especially from a busy session in
+  // another project that delays the IPC channel) arrives after scrollToBottom()
+  // has already fired, stranding the viewport above the new content.
   $effect(() => {
     if (!visible || !ready || !term) return;
     let cancelled = false;
+    let repinTimer: ReturnType<typeof setTimeout> | null = null;
     const raf = requestAnimationFrame(async () => {
       if (cancelled || !term) return;
       safeFit();
       if (sessionId !== null) await resizeSession(sessionId, term.cols, term.rows);
-      if (!cancelled) term?.scrollToBottom();
+      if (cancelled) return;
+      term?.scrollToBottom();
+      repinTimer = setTimeout(() => {
+        repinTimer = null;
+        if (!cancelled) term?.scrollToBottom();
+      }, 250);
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      if (repinTimer !== null) {
+        clearTimeout(repinTimer);
+        repinTimer = null;
+      }
     };
   });
 
