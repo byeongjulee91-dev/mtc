@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
+  import { WebLinksAddon } from '@xterm/addon-web-links';
   import '@xterm/xterm/css/xterm.css';
   import type { Profile } from '../types';
   import type { Dir } from '../tiling';
@@ -322,6 +323,15 @@
     });
     fit = new FitAddon();
     term.loadAddon(fit);
+    term.loadAddon(new WebLinksAddon((_e, uri) => {
+      if (app.standalone) {
+        window.open(uri, '_blank', 'noopener,noreferrer');
+      } else {
+        import('@tauri-apps/plugin-opener').then(m => m.openUrl(uri)).catch(() => {
+          window.open(uri, '_blank', 'noopener,noreferrer');
+        });
+      }
+    }));
     // Intercept Ctrl +/-/0 before they reach the PTY so they zoom instead of
     // being sent to the shell. Returning false stops xterm from handling them.
     term.attachCustomKeyEventHandler(onKey);
