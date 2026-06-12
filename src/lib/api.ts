@@ -57,6 +57,22 @@ export async function countGitModified(path: string): Promise<number | null> {
   return invoke<number | null>('count_git_modified', { path });
 }
 
+// --- directory listing (path autocomplete) ---
+
+/**
+ * List immediate subdirectory names under `path`.
+ * Returns `null` when the path does not exist or is inaccessible (including
+ * when Tauri is unavailable in standalone/browser mode).
+ * Returns `[]` for an existing but empty directory.
+ */
+export async function listDir(path: string): Promise<string[] | null> {
+  try {
+    return await invoke<string[]>('list_dir', { path });
+  } catch {
+    return null;
+  }
+}
+
 // --- terminal sessions ---
 
 export interface SessionCallbacks {

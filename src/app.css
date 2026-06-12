@@ -713,7 +713,7 @@ textarea.field {
   backdrop-filter: blur(2px);
 }
 .modal {
-  width: min(420px, 100%);
+  width: min(560px, 100%);
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;

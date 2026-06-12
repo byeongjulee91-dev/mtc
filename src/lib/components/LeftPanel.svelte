@@ -3,6 +3,8 @@
   import { bus, INSERT_DRAG_TYPE } from '../bus.svelte';
   import Modal from './Modal.svelte';
   import type { Project, SavedQuery } from '../types';
+  import { listDir } from '../api';
+  import { isTauri } from '@tauri-apps/api/core';
 
   // Digits 1–9, offered as both the Alt+<digit> query shortcuts and the
   // Ctrl+<digit> project-switch shortcuts (see App.svelte's handler).
@@ -14,6 +16,16 @@
   let showAddProject = $state(false);
   let projectPath = $state('');
   let projectName = $state('');
+
+  // Path autocomplete state for the add-project modal.
+  let pathMode = $state<'wsl' | 'windows'>('wsl');
+  let suggestions = $state<string[]>([]);
+  let suggestionIdx = $state(-1);
+  let pathExists = $state<boolean | null>(null); // null=unchecked, true=found, false=not found
+  let acTimer: ReturnType<typeof setTimeout> | undefined;
+  let acGen = 0; // generation counter — guards against out-of-order async results
+  let cachedDir = ''; // last directory successfully listed
+  let cachedItems: string[] = []; // all (non-hidden) subdirs of cachedDir
 
   // Focus the first field when the add-project modal opens.
   function autofocus(node: HTMLElement) {
@@ -55,13 +67,141 @@
   // false = append only. Mirrors SavedQuery.submit.
   let querySubmit = $state(true);
 
+  function resetAcState() {
+    clearTimeout(acTimer);
+    suggestions = [];
+    cachedDir = '';
+    cachedItems = [];
+    suggestionIdx = -1;
+    pathExists = null;
+  }
+
+  function setPathMode(mode: 'wsl' | 'windows') {
+    pathMode = mode;
+    projectPath = '';
+    resetAcState();
+  }
+
   function addProject() {
+    resetAcState();
     const p = app.addProject(projectPath, projectName);
     if (p) {
       projectPath = '';
       projectName = '';
+      pathMode = 'wsl';
       showAddProject = false;
     }
+  }
+
+  // Convert a Windows path from the native folder picker to a WSL-style path.
+  // C:\Users\foo\bar  →  /mnt/c/Users/foo/bar
+  // \\wsl.localhost\Ubuntu\home\foo  →  /home/foo
+  function winToWsl(winPath: string): string {
+    const norm = winPath.replace(/\\/g, '/');
+    const drive = norm.match(/^([A-Za-z]):(\/.*)?$/);
+    if (drive) return `/mnt/${drive[1].toLowerCase()}${drive[2] ?? '/'}`;
+    const unc = norm.match(/^\/\/wsl[^/]*\/[^/]+(\/.*)?$/);
+    if (unc) return unc[1] ?? '/';
+    return winPath;
+  }
+
+  async function browseProjectPath() {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const picked = await open({ directory: true, multiple: false });
+      if (typeof picked === 'string') {
+        projectPath = pathMode === 'wsl' ? winToWsl(picked) : picked;
+        resetAcState();
+      }
+    } catch {
+      // standalone or dialog unavailable
+    }
+  }
+
+  function onPathInput() {
+    clearTimeout(acTimer);
+    suggestionIdx = -1;
+    const val = projectPath;
+
+    if (val.length < 2) {
+      suggestions = [];
+      pathExists = null;
+      return;
+    }
+
+    // Split into parent directory and the partial name typed after the last separator.
+    const lastSep = Math.max(val.lastIndexOf('/'), val.lastIndexOf('\\'));
+    if (lastSep < 1) {
+      suggestions = [];
+      pathExists = null;
+      return;
+    }
+    const dir = val.slice(0, lastSep);
+    const prefix = val.slice(lastSep + 1).toLowerCase();
+
+    if (dir === cachedDir) {
+      // Already have this directory's listing — just filter in-memory, no network.
+      suggestions = cachedItems.filter((n) => n.toLowerCase().startsWith(prefix));
+      return;
+    }
+
+    // New directory — fetch with debounce.
+    const gen = ++acGen;
+    acTimer = setTimeout(async () => {
+      const result = await listDir(dir);
+      if (gen !== acGen) return;
+      if (!isTauri()) {
+        pathExists = null;
+        suggestions = [];
+      } else if (result === null) {
+        pathExists = false;
+        suggestions = [];
+        cachedDir = '';
+        cachedItems = [];
+      } else {
+        pathExists = true;
+        cachedDir = dir;
+        cachedItems = result.filter((n) => !n.startsWith('.'));
+        suggestions = cachedItems.filter((n) => n.toLowerCase().startsWith(prefix));
+      }
+    }, 200);
+  }
+
+  function onPathKeydown(e: KeyboardEvent) {
+    if (suggestions.length === 0) {
+      if (e.key === 'Enter') addProject();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestionIdx = Math.min(suggestionIdx + 1, suggestions.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestionIdx = Math.max(suggestionIdx - 1, -1);
+    } else if (e.key === 'Tab') {
+      // Tab accepts the highlighted suggestion (or the first one if none highlighted).
+      e.preventDefault();
+      applySuggestion(suggestions[suggestionIdx >= 0 ? suggestionIdx : 0]);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (suggestionIdx >= 0) applySuggestion(suggestions[suggestionIdx]);
+      else { suggestions = []; addProject(); }
+    } else if (e.key === 'Escape') {
+      e.stopPropagation(); // prevent modal from closing when only closing the dropdown
+      suggestions = [];
+      suggestionIdx = -1;
+    }
+  }
+
+  function applySuggestion(name: string) {
+    // Replace everything after the last separator with the chosen name,
+    // then append the mode-appropriate separator so the next level is listed.
+    const sep = pathMode === 'windows' ? '\\' : '/';
+    const lastSep = Math.max(projectPath.lastIndexOf('/'), projectPath.lastIndexOf('\\'));
+    projectPath = projectPath.slice(0, lastSep + 1) + name + sep;
+    suggestions = [];
+    suggestionIdx = -1;
+    onPathInput(); // re-trigger to list the next level immediately
   }
   function addTodo() {
     const t = todoText.trim();
@@ -479,15 +619,45 @@
 </div>
 
 {#if showAddProject}
-  <Modal title="Add project" onclose={() => (showAddProject = false)}>
+  <Modal title="Add project" onclose={() => { resetAcState(); pathMode = 'wsl'; showAddProject = false; }}>
     <div style="display:flex;flex-direction:column;gap:6px">
-      <input
-        class="field"
-        placeholder="Path, e.g. /mnt/c/Users/me/project"
-        bind:value={projectPath}
-        use:autofocus
-        onkeydown={(e) => e.key === 'Enter' && addProject()}
-      />
+      <!-- WSL / Windows toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn" class:active={pathMode === 'wsl'} onclick={() => setPathMode('wsl')}>WSL</button>
+        <button class="mode-btn" class:active={pathMode === 'windows'} onclick={() => setPathMode('windows')}>Windows</button>
+      </div>
+      <!-- Path row: input + existence dot + browse button -->
+      <div style="display:flex;gap:4px;align-items:center">
+        <input
+          class="field"
+          style="flex:1"
+          placeholder={pathMode === 'wsl' ? '/mnt/c/Users/me/project  or  /home/user/project' : 'C:\\Users\\me\\project'}
+          bind:value={projectPath}
+          use:autofocus
+          oninput={onPathInput}
+          onkeydown={onPathKeydown}
+          onblur={() => setTimeout(() => { suggestions = []; }, 150)}
+        />
+        {#if pathExists !== null}
+          <span
+            style="flex:none;font-size:10px;color:{pathExists ? '#4caf50' : '#f44336'}"
+            title={pathExists ? 'Directory found' : 'Directory not found'}
+          >●</span>
+        {/if}
+        <button class="btn icon" title="Browse…" onclick={browseProjectPath}>…</button>
+      </div>
+      <!-- Autocomplete list: inline, expands the modal naturally -->
+      {#if suggestions.length > 0}
+        <div class="ac-dropdown">
+          {#each suggestions as s, i}
+            <button
+              class="ac-item"
+              class:ac-active={i === suggestionIdx}
+              onmousedown={(e) => { e.preventDefault(); applySuggestion(s); }}
+            >{s}</button>
+          {/each}
+        </div>
+      {/if}
       <input
         class="field"
         placeholder="Name (optional)"
@@ -532,6 +702,57 @@
 {/if}
 
 <style>
+  /* WSL / Windows mode toggle in the add-project modal. */
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .mode-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 0;
+    font-size: inherit;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .mode-btn:first-child {
+    border-right: 1px solid var(--border);
+  }
+  .mode-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  /* Autocomplete list for the add-project path input.
+     Inline — the modal grows naturally to fit; modal-body scrolls if very tall. */
+  .ac-dropdown {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow-y: auto;
+  }
+  .ac-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 8px;
+    font-size: inherit;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .ac-item:hover,
+  .ac-item.ac-active {
+    background: var(--bg);
+  }
+
   /* Inline edit textarea (todo/query): the height is set to fit the content by
      the `autogrow` action, capped here so a very long item scrolls inside the
      box instead of pushing the whole panel. Wraps normally (unlike the .grow

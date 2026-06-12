@@ -19,16 +19,12 @@
       onclose();
     }
   }
-  // Close only when the scrim itself is clicked, not the dialog inside it.
-  function onBackdrop(e: MouseEvent) {
-    if (e.target === e.currentTarget) onclose();
-  }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 <!-- The scrim is presentational; keyboard close is handled on the window above. -->
-<div class="modal-backdrop" role="presentation" onclick={onBackdrop}>
+<div class="modal-backdrop" role="presentation">
   <div class="modal" role="dialog" aria-modal="true" aria-label={title}>
     <div class="modal-head">
       <span class="modal-title">{title}</span>

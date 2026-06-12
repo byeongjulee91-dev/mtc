@@ -1,6 +1,7 @@
 // Hide the console window on Windows release builds.
 #![cfg_attr(not(debug_assertions), cfg_attr(target_os = "windows", windows_subsystem = "windows"))]
 
+mod dirlist;
 mod git;
 mod profile;
 mod pty;
@@ -77,6 +78,19 @@ async fn count_git_modified(path: String) -> Result<Option<u32>, String> {
         .map_err(|e| format!("git modified count failed: {e}"))?
 }
 
+/// List immediate subdirectory names under `path` for path autocomplete.
+/// On Windows, Linux-style paths are resolved inside WSL.
+/// Returns `Ok(names)` for an accessible directory (possibly empty),
+/// `Err` for a non-existent or inaccessible path.
+#[tauri::command]
+async fn list_dir(path: String) -> Result<Vec<String>, String> {
+    let windows = cfg!(windows);
+    tauri::async_runtime::spawn_blocking(move || dirlist::list_directory(&path, windows))
+        .await
+        .map_err(|e| format!("list_dir join error: {e}"))
+        .and_then(|r| r)
+}
+
 #[tauri::command]
 fn create_session(
     manager: tauri::State<PtyManager>,
@@ -119,6 +133,7 @@ fn main() {
             save_app_data,
             discover_skills,
             count_git_modified,
+            list_dir,
             create_session,
             write_session,
             resize_session,
