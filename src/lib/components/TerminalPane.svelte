@@ -377,6 +377,7 @@
           // the user may still want to copy/resume in a new session. runResume
           // detects exited=true and falls back to clipboard instead of writing.
           exited = true;
+          sessionId = null; // stop onData from writing to the dead session
           term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
           onexit?.();
         },
