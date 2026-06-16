@@ -78,13 +78,15 @@
     resumeCmd = `claude --resume ${m[1]}`;
   }
 
-  // Chip clicked: type the resume command and submit it.
-  // If the PTY is still alive (keepOpen=true, bash shell running): write directly
-  // to the terminal session. term.focus() is intentionally skipped here — calling
-  // it triggers xterm to emit a focus escape sequence (\x1b[I) which can land
-  // in the PTY ahead of our command and corrupt the input line.
-  // If the PTY is dead (keepOpen=false): copy to clipboard so the user can paste
-  // into a new terminal. The chip stays visible until dismissed or pane closes.
+  // Chip clicked: resume the session.
+  // If the PTY is still alive (keepOpen=true, bash shell running): write the
+  // resume command directly to the session. term.focus() is intentionally skipped
+  // here — calling it triggers xterm to emit a focus escape sequence (\x1b[I)
+  // which can land in the PTY ahead of our command and corrupt the input line.
+  // If the PTY is dead (keepOpen=false, or claude was Ctrl+C'd and the shell chain
+  // exited with it): re-spawn the pane running `claude --resume <id>` so the dead
+  // terminal comes back to life in place, instead of leaving the user with a
+  // frozen `[process exited]` pane and a command they can only paste elsewhere.
   function runResume() {
     const cmd = resumeCmd;
     if (cmd === null) return;
@@ -92,8 +94,22 @@
     if (!exited && sessionId !== null) {
       sendToSession(cmd, true);
     } else {
-      void clipboardWriteText(cmd).catch(() => {});
+      restartSession(cmd);
     }
+  }
+
+  // Re-spawn a dead pane in place. `commandOverride` (e.g. `claude --resume <id>`)
+  // replaces the profile's command for this one launch; otherwise the profile is
+  // relaunched as-is. No-op while the session is still alive — only a dead PTY
+  // (sessionId === null after onExit) is restartable, so this can't clobber a
+  // running shell. Resets the resume-hint state so a fresh hint can surface.
+  function restartSession(commandOverride: string | null = null) {
+    if (!term || sessionId !== null) return;
+    resumeCmd = null;
+    resumeId = '';
+    scanBuf = '';
+    term.writeln('\r\n\x1b[90m[restarting…]\x1b[0m');
+    void startSession(commandOverride);
   }
 
   // TUI apps (claude, codex) detect pastes by timing: input that arrives in one
@@ -320,8 +336,47 @@
     bus.paneResumeCmd[paneId] = resumeCmd;
   });
 
+  // Sync the exited flag to the bus so the pane header can offer a Restart pill
+  // on a dead pane (a `[process exited]` terminal that would otherwise be frozen).
+  $effect(() => {
+    bus.paneExited[paneId] = exited;
+  });
+
+  // (Re)spawn the PTY for this pane. Shared by the initial mount and by
+  // restartSession. `commandOverride` replaces the profile's command for this one
+  // launch (used by Resume to relaunch as `claude --resume <id>`); otherwise the
+  // profile is launched as-is. Clears `exited` on success so the pane is live.
+  async function startSession(commandOverride: string | null = null) {
+    if (!term) return;
+    const launch =
+      commandOverride !== null ? { ...profile, command: commandOverride } : profile;
+    try {
+      sessionId = await createSession(launch, term.cols, term.rows, {
+        onData: (bytes) => {
+          term?.write(bytes);
+          noteOutput();
+          detectResume(bytes);
+        },
+        onExit: () => {
+          // PTY is gone. Keep any pending resumeCmd so the Resume chip stays
+          // visible; clearing sessionId stops onData from writing to the dead
+          // session. The pane is now restartable in place (see restartSession),
+          // so the user isn't left with a frozen terminal they can't type into.
+          exited = true;
+          sessionId = null;
+          term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
+          onexit?.();
+        },
+      });
+      exited = false;
+    } catch (e) {
+      term.writeln('\x1b[31m  failed to start session: ' + String(e) + '\x1b[0m');
+    }
+  }
+
   onMount(async () => {
     bus.paneResumeRun[paneId] = runResume;
+    bus.paneRestartRun[paneId] = () => restartSession();
     term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "Consolas", monospace',
       fontSize: app.data.terminalFontSize,
@@ -365,28 +420,11 @@
       return;
     }
 
-    try {
-      sessionId = await createSession(profile, term.cols, term.rows, {
-        onData: (bytes) => {
-          term?.write(bytes);
-          noteOutput();
-          detectResume(bytes);
-        },
-        onExit: () => {
-          // PTY is gone. Keep any pending resumeCmd so the chip stays visible —
-          // the user may still want to copy/resume in a new session. runResume
-          // detects exited=true and falls back to clipboard instead of writing.
-          exited = true;
-          sessionId = null; // stop onData from writing to the dead session
-          term?.writeln('\r\n\x1b[90m[process exited]\x1b[0m');
-          onexit?.();
-        },
-      });
-    } catch (e) {
-      term.writeln('\x1b[31m  failed to start session: ' + String(e) + '\x1b[0m');
-      return;
-    }
+    await startSession();
 
+    // Wire input and resize once, up front. Both guard on a live sessionId, so
+    // they stay dormant while the pane is dead and transparently pick up the new
+    // id after a restart — no need to re-attach them on every respawn.
     term.onData((d) => {
       if (sessionId !== null) void writeSession(sessionId, d);
     });
@@ -515,6 +553,8 @@
   onDestroy(() => {
     delete bus.paneResumeRun[paneId];
     delete bus.paneResumeCmd[paneId];
+    delete bus.paneRestartRun[paneId];
+    delete bus.paneExited[paneId];
     host?.removeEventListener('wheel', onWheel);
     resizeObs?.disconnect();
     // Stop the idle timer and clear any lingering busy state so a pane that's

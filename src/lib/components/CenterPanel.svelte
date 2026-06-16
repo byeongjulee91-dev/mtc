@@ -341,6 +341,12 @@
                     title={bus.paneResumeCmd[id] ?? ''}
                     onclick={() => bus.paneResumeRun[id]?.()}
                   >↻ Resume</button>
+                {:else if bus.paneExited[id]}
+                  <button
+                    class="btn resume-pill"
+                    title="Restart this terminal"
+                    onclick={() => bus.paneRestartRun[id]?.()}
+                  >↻ Restart</button>
                 {/if}
                 <button class="btn icon" title="Close" onclick={() => closePaneIn(rt, key, id)}>✕</button>
               </div>

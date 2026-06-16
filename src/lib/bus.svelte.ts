@@ -80,6 +80,14 @@ class Bus {
   paneResumeCmd = $state<Record<number, string | null>>({});
   /** Maps pane numeric ID → the resume action handler registered by that pane. */
   paneResumeRun: Record<number, () => void> = {};
+  /**
+   * Maps pane numeric ID → whether its PTY has exited (the process is dead). The
+   * pane header reads it to offer a "Restart" pill so a `[process exited]` pane
+   * is recoverable in place instead of frozen.
+   */
+  paneExited = $state<Record<number, boolean>>({});
+  /** Maps pane numeric ID → the restart action handler registered by that pane. */
+  paneRestartRun: Record<number, () => void> = {};
 
   register(fn: Sender) {
     this.#senders.add(fn);
