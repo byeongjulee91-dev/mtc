@@ -10,7 +10,6 @@ const prof = (id: string): Profile => ({
   distro: '',
   cwd: '',
   command: '',
-  keepOpen: false,
   shell: 'wsl',
 });
 

@@ -119,7 +119,7 @@
     }
   }
 
-  const blankProfile = () => ({ name: 'New profile', color: '#4a9eff', distro: '', cwd: '', command: '', keepOpen: false, shell: 'wsl' as const });
+  const blankProfile = () => ({ name: 'New profile', color: '#4a9eff', distro: '', cwd: '', command: '', shell: 'wsl' as const });
   function addProfile() {
     app.addProfile(blankProfile(), 'global');
   }
@@ -263,10 +263,6 @@
           {/if}
           <input class="field" value={p.cwd} oninput={(e) => update(p, { cwd: e.currentTarget.value })} placeholder={p.shell === 'wsl' ? 'cwd (optional)' : 'cwd — Windows path (optional)'} />
         </div>
-        <label class="muted" style="font-size:12px;display:flex;gap:6px;align-items:center">
-          <input type="checkbox" checked={p.keepOpen} onchange={(e) => update(p, { keepOpen: e.currentTarget.checked })} />
-          keep shell open after command exits
-        </label>
       </div>
     {/snippet}
 

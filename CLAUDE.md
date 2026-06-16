@@ -30,8 +30,9 @@ spacing), `DESIGN.md` is the canonical design-system reference — its tokens ma
    `generate_handler!`, and (for plugin APIs) be permitted in
    `src-tauri/capabilities/default.json`.
 2. **Type parity** — the Rust `Profile` (`src-tauri/src/profile.rs`) mirrors the
-   TS `Profile` (`src/lib/types.ts`) via serde `rename_all = "camelCase"`
-   (`keep_open` ↔ `keepOpen`). Change both sides together.
+   TS `Profile` (`src/lib/types.ts`) via serde `rename_all = "camelCase"`, so any
+   Rust `snake_case` field maps to a frontend camelCase one. Add/remove/rename a
+   field on both sides together.
 3. **Dual-mode** — the app must keep working both inside Tauri (real WSL
    terminals) and as plain `vite` in a browser (`standalone` mode, no backend).
    Preserve the graceful fallbacks in `state.svelte.ts` and `TerminalPane.svelte`.

@@ -10,11 +10,11 @@ export interface Profile {
   cwd: string;
   /**
    * Command to run inside WSL after entering (e.g. "claude", "codex").
-   * Empty = just an interactive login shell.
+   * Empty = just an interactive login shell. When set, an interactive shell is
+   * always kept open after the command exits, so the pane stays usable (e.g.
+   * Ctrl+C-ing out of claude drops you back to a prompt instead of killing it).
    */
   command: string;
-  /** Keep an interactive shell open after `command` exits. */
-  keepOpen: boolean;
   /**
    * Terminal backend on Windows: `'wsl'` (default) enters WSL via `wsl.exe`;
    * `'powershell'` launches Windows PowerShell; `'cmd'` launches the command

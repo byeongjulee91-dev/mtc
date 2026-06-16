@@ -79,14 +79,16 @@
   }
 
   // Chip clicked: resume the session.
-  // If the PTY is still alive (keepOpen=true, bash shell running): write the
-  // resume command directly to the session. term.focus() is intentionally skipped
-  // here — calling it triggers xterm to emit a focus escape sequence (\x1b[I)
-  // which can land in the PTY ahead of our command and corrupt the input line.
-  // If the PTY is dead (keepOpen=false, or claude was Ctrl+C'd and the shell chain
-  // exited with it): re-spawn the pane running `claude --resume <id>` so the dead
-  // terminal comes back to life in place, instead of leaving the user with a
-  // frozen `[process exited]` pane and a command they can only paste elsewhere.
+  // If the PTY is still alive (the command exited and we fell through to the
+  // interactive shell): write the resume command directly to the session.
+  // term.focus() is intentionally skipped here — calling it triggers xterm to
+  // emit a focus escape sequence (\x1b[I) which can land in the PTY ahead of our
+  // command and corrupt the input line.
+  // If the PTY is dead (the whole shell chain exited — e.g. claude was Ctrl+C'd
+  // and the shell went with it): re-spawn the pane running `claude --resume <id>`
+  // so the dead terminal comes back to life in place, instead of leaving the user
+  // with a frozen `[process exited]` pane and a command they can only paste
+  // elsewhere.
   function runResume() {
     const cmd = resumeCmd;
     if (cmd === null) return;

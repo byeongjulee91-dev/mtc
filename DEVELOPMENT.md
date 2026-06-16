@@ -107,7 +107,7 @@ mtc/
   their `TerminalPane` unmounts, and **the backend session is killed**. Don't.
 - **Tauri IPC arg casing.** Rust snake_case params map to JS camelCase automatically
   (`on_event` ↔ `onEvent`). `Profile` uses `#[serde(rename_all = "camelCase")]` to
-  match the TS type (`keepOpen`).
+  match the TS type, so its fields must stay in sync on both sides.
 - **`tauri = { features = [] }` does NOT disable defaults.** Defaults are additive
   unless you set `default-features = false`. Leave it.
 - **Svelte 5 reactive state over IPC.** Pass `$state.snapshot(...)` (a plain deep

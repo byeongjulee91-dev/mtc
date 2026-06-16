@@ -43,7 +43,7 @@ tested without a Windows host.
   boundary. A change to a command's signature must be applied on **both** sides:
   the Rust `#[tauri::command]` in `src-tauri/src/main.rs` and the `invoke(...)`
   wrapper in `src/lib/api.ts`. Serde uses `camelCase` rename, so Rust `snake_case`
-  fields map to frontend camelCase (e.g. `keep_open` ↔ `keepOpen`).
+  fields map to frontend camelCase (e.g. the IPC arg `on_event` ↔ `onEvent`).
 - The app must run in two modes: **inside Tauri** (real WSL terminals) and
   **plain browser** (`vite` only — no backend). The frontend degrades gracefully
   to a "standalone" mode; preserve that fallback when touching state/API code.

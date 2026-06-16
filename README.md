@@ -127,10 +127,9 @@ Edit profiles in the **right panel → Profiles** tab. Each profile has:
 | Field | Meaning |
 | --- | --- |
 | Name / color | Label and accent shown on the chip & pane |
-| Command | What to run inside WSL (`claude`, `codex`, …). Empty = login shell |
+| Command | What to run inside WSL (`claude`, `codex`, …). Empty = login shell. When set, the session drops into an interactive shell after the command exits, so the pane stays usable |
 | distro | `wsl.exe -d <distro>` (empty = default distro) |
 | cwd | `wsl.exe --cd <cwd>` working directory inside WSL |
-| keep open | Drop into an interactive shell after the command exits |
 
 Defaults: **Claude**, **Codex**, **WSL Shell**.
 
